@@ -21,7 +21,9 @@
         "laravel/pint": "^1.18",
         "orchestra/testbench": "^9.0|^10.0",
         "pestphp/pest": "^2.34|^3.0",
-        "pestphp/pest-plugin-laravel": "^2.4|^3.0"
+        "pestphp/pest-plugin-arch": "^2.7|^3.0",
+        "pestphp/pest-plugin-laravel": "^2.4|^3.0",
+        "phpstan/phpstan": "^2.0"
     },
     "extra": {
         "laravel": {
@@ -34,8 +36,18 @@
         }
     },
     "scripts": {
+        "analyse": "phpstan analyse --debug --memory-limit=1G",
+        "ci": [
+            "@validate:composer",
+            "@format:test",
+            "@analyse",
+            "@test"
+        ],
+        "coverage": "pest --coverage --coverage-clover coverage/clover.xml --coverage-html coverage/html --min=80",
         "test": "pest",
-        "format": "pint"
+        "format:test": "pint --test",
+        "format": "pint",
+        "validate:composer": "composer validate --strict"
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
