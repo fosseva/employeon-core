@@ -11,7 +11,10 @@ arch('source code only depends on the minimal Laravel support layer')
     ->expect('Employeon')
     ->toOnlyUse([
         'Employeon',
+        'Illuminate\Console',
         'Illuminate\Support',
+        'Inertia',
+        'public_path',
     ])
     ->ignoring('Employeon\Tests');
 

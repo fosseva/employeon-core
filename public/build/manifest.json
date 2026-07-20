@@ -1,0 +1,11 @@
+{
+  "resources/js/app.tsx": {
+    "file": "assets/app-c0W1Wr_z.js",
+    "name": "app",
+    "src": "resources/js/app.tsx",
+    "isEntry": true,
+    "css": [
+      "assets/app-RUjCT7fL.css"
+    ]
+  }
+}
