@@ -16,7 +16,8 @@
     "require": {
         "php": "^8.3",
         "laravel/framework": "^13.0",
-        "inertiajs/inertia-laravel": "^2.0"
+        "inertiajs/inertia-laravel": "^2.0",
+        "spatie/laravel-permission": "^8.0"
     },
     "require-dev": {
         "laravel/pint": "^1.27",

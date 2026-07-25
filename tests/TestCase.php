@@ -7,6 +7,7 @@ namespace Employeon\Tests;
 use Employeon\EmployeonServiceProvider;
 use Inertia\ServiceProvider as InertiaServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
+use Spatie\Permission\PermissionServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
@@ -14,6 +15,7 @@ abstract class TestCase extends Orchestra
     {
         return [
             InertiaServiceProvider::class,
+            PermissionServiceProvider::class,
             EmployeonServiceProvider::class,
         ];
     }

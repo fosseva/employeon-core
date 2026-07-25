@@ -42,7 +42,43 @@ it('logs out of the sample session', function (): void {
     $this->get('/profile')->assertRedirect('/login');
 });
 
-it('renders dummy templates for sidebar navigation pages', function (string $path, string $component): void {
+it('redirects protected modules to login without a session', function (): void {
+    $this->get('/dashboard')->assertRedirect('/login');
+    $this->get('/employees')->assertRedirect('/login');
+    $this->get('/attendance')->assertRedirect('/login');
+    $this->get('/roles-permissions')->assertRedirect('/login');
+});
+
+it('renders registered modules through the shared module template', function (string $path, string $title): void {
+    $this->withoutVite();
+
+    $this->withSession([
+        'employeon.user' => [
+            'name' => 'Aniket Magadum',
+            'email' => 'aniket@example.com',
+            'role' => 'People Operations Admin',
+        ],
+    ]);
+
+    $this->get($path)
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('ModuleTemplate')
+            ->where('template.title', $title)
+            ->has('user.email')
+        );
+})->with([
+    ['/dashboard', 'Dashboard'],
+    ['/departments', 'Departments'],
+    ['/leaves', 'Leaves'],
+    ['/payroll', 'Payroll'],
+    ['/compliance', 'Compliance'],
+    ['/reports', 'Reports'],
+    ['/settings', 'Settings'],
+    ['/support', 'Support'],
+]);
+
+it('renders employees and attendance as first party module pages', function (string $path, string $component, string $title): void {
     $this->withoutVite();
 
     $this->withSession([
@@ -57,18 +93,31 @@ it('renders dummy templates for sidebar navigation pages', function (string $pat
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->component($component)
-            ->has('template.title')
-            ->has('user.email')
+            ->where('template.title', $title)
         );
 })->with([
-    ['/dashboard', 'Dashboard/Index'],
-    ['/employees', 'Employees/Index'],
-    ['/departments', 'Departments/Index'],
-    ['/attendance', 'Attendance/Index'],
-    ['/leaves', 'Leaves/Index'],
-    ['/payroll', 'Payroll/Index'],
-    ['/compliance', 'Compliance/Index'],
-    ['/reports', 'Reports/Index'],
-    ['/settings', 'Settings/Index'],
-    ['/support', 'Support/Index'],
+    ['/employees', 'Employees/Index', 'Employees'],
+    ['/attendance', 'Attendance/Index', 'Attendance'],
 ]);
+
+it('renders roles and permissions without exposing backend configuration', function (): void {
+    $this->withoutVite();
+
+    $this->withSession([
+        'employeon.user' => [
+            'name' => 'Aniket Magadum',
+            'email' => 'aniket@example.com',
+            'role' => 'People Operations Admin',
+        ],
+    ]);
+
+    $this->get('/roles-permissions')
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('RolesPermissions/Index')
+            ->missing('database')
+            ->missing('authorization')
+            ->missing('roles.0.guard_name')
+            ->missing('permissions.0.guard_name')
+        );
+});
