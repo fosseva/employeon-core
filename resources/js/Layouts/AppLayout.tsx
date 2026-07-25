@@ -1,0 +1,404 @@
+import { Link, router, useForm } from '@inertiajs/react';
+import {
+  Bell,
+  Building2,
+  CalendarDays,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  CircleDollarSign,
+  ClipboardList,
+  Gauge,
+  LifeBuoy,
+  LogOut,
+  Search,
+  Settings,
+  ShieldCheck,
+  UsersRound,
+  UserRound,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+
+type User = {
+  name: string;
+  email: string;
+  role: string;
+};
+
+type MenuItem = {
+  label: string;
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  group: 'Workforce' | 'Operations' | 'Admin';
+};
+
+const menuItems: MenuItem[] = [
+  { label: 'Dashboard', href: '/dashboard', icon: Gauge, group: 'Workforce' },
+  { label: 'Employees', href: '/employees', icon: UsersRound, group: 'Workforce' },
+  { label: 'Departments', href: '/departments', icon: Building2, group: 'Workforce' },
+  { label: 'Attendance', href: '/attendance', icon: CalendarDays, group: 'Operations' },
+  { label: 'Leaves', href: '/leaves', icon: ClipboardList, group: 'Operations' },
+  { label: 'Payroll', href: '/payroll', icon: CircleDollarSign, group: 'Operations' },
+  { label: 'Compliance', href: '/compliance', icon: ShieldCheck, group: 'Operations' },
+  { label: 'Reports', href: '/reports', icon: ClipboardList, group: 'Admin' },
+  { label: 'Settings', href: '/settings', icon: Settings, group: 'Admin' },
+  { label: 'Support', href: '/support', icon: LifeBuoy, group: 'Admin' },
+];
+
+const notifications = [
+  '3 leave requests need review',
+  'Payroll draft closes tomorrow',
+  'New employee profile pending approval',
+];
+
+type AppLayoutProps = {
+  children: ReactNode;
+  title: string;
+  subtitle?: string;
+  user: User;
+};
+
+function initials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function SidebarLink({ collapsed, item }: { collapsed: boolean; item: MenuItem }) {
+  const Icon = item.icon;
+  const active = typeof window !== 'undefined' && window.location.pathname === item.href;
+  const className = active
+    ? 'flex h-9 items-center gap-2 rounded-md bg-[#27615a] px-2.5 text-xs font-bold text-white'
+    : 'flex h-9 items-center gap-2 rounded-md px-2.5 text-xs font-semibold text-[#3e4b44] hover:bg-[#e8efe8] hover:text-[#17201b]';
+
+  return (
+    <Link className={className} href={item.href} title={collapsed ? item.label : undefined}>
+      <Icon className="size-4 shrink-0" />
+      {!collapsed && <span className="truncate">{item.label}</span>}
+      {active && !collapsed && <span className="ml-auto size-1.5 rounded-full bg-white" />}
+    </Link>
+  );
+}
+
+export default function AppLayout({ children, title, subtitle, user }: AppLayoutProps) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const { post, processing } = useForm();
+
+  const groupedMenu = useMemo(
+    () =>
+      menuItems.reduce<Record<MenuItem['group'], MenuItem[]>>(
+        (groups, item) => {
+          groups[item.group].push(item);
+          return groups;
+        },
+        { Workforce: [], Operations: [], Admin: [] },
+      ),
+    [],
+  );
+
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (query.length === 0) {
+      return [];
+    }
+
+    return menuItems
+      .filter((item) => `${item.label} ${item.group}`.toLowerCase().includes(query))
+      .slice(0, 6);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null) {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      return (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+    }
+
+    function focusSearch(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (
+        event.key === '/' &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !isTypingTarget(event.target)
+      ) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    }
+
+    window.addEventListener('keydown', focusSearch);
+
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
+
+  function openFirstSearchResult() {
+    const [firstResult] = searchResults;
+
+    if (firstResult) {
+      router.visit(firstResult.href);
+      setSearchQuery('');
+    }
+  }
+
+  function logout() {
+    post('/logout');
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f4f7f1] text-[#17201b]">
+      <div
+        className={
+          collapsed
+            ? 'grid min-h-screen lg:grid-cols-[76px_1fr]'
+            : 'grid min-h-screen lg:grid-cols-[264px_1fr]'
+        }
+      >
+        <aside className="border-b border-[#17201b]/10 bg-[#fffffb] lg:border-b-0 lg:border-r">
+          <div className="flex h-full flex-col px-3 py-4">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <Link
+                className={
+                  collapsed
+                    ? 'grid size-10 place-items-center rounded-lg bg-[#27615a] text-sm font-black text-white no-underline'
+                    : 'grid gap-0.5 px-1 no-underline'
+                }
+                href="/profile"
+              >
+                {collapsed ? (
+                  'E'
+                ) : (
+                  <>
+                    <span className="text-[0.68rem] font-extrabold uppercase text-[#27615a]">
+                      Employeon
+                    </span>
+                    <span className="text-lg font-black text-[#17201b]">People Ops</span>
+                  </>
+                )}
+              </Link>
+
+              <button
+                className="hidden size-8 place-items-center rounded-md border border-[#17201b]/10 bg-[#f7faf4] text-[#34423a] hover:bg-[#e8efe8] lg:grid"
+                type="button"
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                onClick={() => setCollapsed((value) => !value)}
+              >
+                {collapsed ? (
+                  <ChevronsRight className="size-4" />
+                ) : (
+                  <ChevronsLeft className="size-4" />
+                )}
+              </button>
+            </div>
+
+            <nav className="grid gap-3 overflow-y-auto" aria-label="Workspace navigation">
+              {(Object.keys(groupedMenu) as MenuItem['group'][]).map((group) => {
+                const items = groupedMenu[group];
+
+                if (items.length === 0) {
+                  return null;
+                }
+
+                return (
+                  <div className="grid gap-1" key={group}>
+                    {!collapsed && (
+                      <p className="px-2 text-[0.65rem] font-black uppercase text-[#8a6a4a]">
+                        {group}
+                      </p>
+                    )}
+                    {items.map((item) => (
+                      <SidebarLink collapsed={collapsed} item={item} key={item.label} />
+                    ))}
+                  </div>
+                );
+              })}
+            </nav>
+
+            {!collapsed && (
+              <div className="mt-auto rounded-lg border border-[#17201b]/10 bg-[#f7faf4] p-3">
+                <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Starter</p>
+                <p className="mt-1.5 text-xs leading-5 text-[#59635d]">
+                  Compact menus are ready for new modules as the system grows.
+                </p>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        <section className="min-w-0">
+          <header className="sticky top-0 z-10 border-b border-[#17201b]/10 bg-[#fffffb]/95 px-5 py-3 backdrop-blur lg:px-6">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <p className="text-[0.68rem] font-extrabold uppercase text-[#27615a]">Workspace</p>
+                <h1 className="mt-1 truncate text-2xl font-black leading-tight text-[#17201b]">
+                  {title}
+                </h1>
+                {subtitle && <p className="mt-1 text-xs text-[#59635d]">{subtitle}</p>}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[240px] flex-1 xl:w-[340px] xl:flex-none">
+                  <label className="flex h-10 items-center gap-2 rounded-lg border border-[#17201b]/10 bg-[#f7faf4] px-3 text-sm text-[#59635d] focus-within:border-[#27615a]/40 focus-within:bg-[#fffffb]">
+                    <Search className="size-4 shrink-0" />
+                    <input
+                      ref={searchInputRef}
+                      className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#17201b] outline-none placeholder:text-[#8a948d]"
+                      type="search"
+                      value={searchQuery}
+                      placeholder="Search menus"
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          openFirstSearchResult();
+                        }
+
+                        if (event.key === 'Escape') {
+                          setSearchQuery('');
+                          event.currentTarget.blur();
+                        }
+                      }}
+                    />
+                    <kbd className="hidden rounded border border-[#17201b]/10 bg-[#fffffb] px-1.5 py-0.5 text-[0.65rem] font-black text-[#59635d] sm:inline">
+                      Cmd K
+                    </kbd>
+                  </label>
+
+                  {searchQuery.trim().length > 0 && (
+                    <div className="absolute left-0 right-0 mt-2 overflow-hidden rounded-lg border border-[#17201b]/10 bg-[#fffffb] shadow-[0_18px_45px_rgba(23,32,27,0.12)]">
+                      {searchResults.length > 0 ? (
+                        searchResults.map((item) => {
+                          const Icon = item.icon;
+
+                          return (
+                            <Link
+                              className="flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-[#34423a] no-underline hover:bg-[#f7faf4]"
+                              href={item.href}
+                              key={item.href}
+                              onClick={() => setSearchQuery('')}
+                            >
+                              <Icon className="size-4 text-[#27615a]" />
+                              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                              <span className="text-[0.65rem] font-black uppercase text-[#8a6a4a]">
+                                {item.group}
+                              </span>
+                            </Link>
+                          );
+                        })
+                      ) : (
+                        <p className="px-3 py-2.5 text-xs font-semibold text-[#59635d]">
+                          No menus found
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <button
+                    className="relative grid size-10 place-items-center rounded-lg border border-[#17201b]/10 bg-[#fffffb] text-[#34423a] hover:bg-[#f7faf4]"
+                    type="button"
+                    aria-label="Notifications"
+                    onClick={() => setShowNotifications((value) => !value)}
+                  >
+                    <Bell className="size-4" />
+                    <span className="absolute right-2 top-2 size-2 rounded-full bg-[#a33b2f]" />
+                  </button>
+
+                  {showNotifications && (
+                    <div className="absolute right-0 mt-2 w-80 rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-3 shadow-[0_18px_45px_rgba(23,32,27,0.12)]">
+                      <p className="px-1 text-xs font-black uppercase text-[#27615a]">
+                        Notifications
+                      </p>
+                      <div className="mt-2 grid gap-2">
+                        {notifications.map((notification) => (
+                          <div
+                            className="rounded-md border border-[#17201b]/10 bg-[#f7faf4] px-3 py-2 text-xs font-semibold text-[#34423a]"
+                            key={notification}
+                          >
+                            {notification}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <button
+                    className="flex h-10 items-center gap-2 rounded-lg border border-[#17201b]/10 bg-[#fffffb] px-2 text-left hover:bg-[#f7faf4]"
+                    type="button"
+                    onClick={() => setShowProfileMenu((value) => !value)}
+                  >
+                    <span className="grid size-7 place-items-center rounded-md bg-[#27615a] text-xs font-black text-white">
+                      {initials(user.name)}
+                    </span>
+                    <span className="hidden min-w-0 sm:block">
+                      <span className="block truncate text-xs font-black text-[#17201b]">
+                        {user.name}
+                      </span>
+                      <span className="block truncate text-[0.68rem] font-semibold text-[#59635d]">
+                        {user.role}
+                      </span>
+                    </span>
+                    <ChevronDown className="size-3.5 text-[#59635d]" />
+                  </button>
+
+                  {showProfileMenu && (
+                    <div className="absolute right-0 mt-2 w-64 rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-3 shadow-[0_18px_45px_rgba(23,32,27,0.12)]">
+                      <div className="border-b border-[#17201b]/10 pb-3">
+                        <p className="text-sm font-black text-[#17201b]">{user.name}</p>
+                        <p className="mt-0.5 truncate text-xs text-[#59635d]">{user.email}</p>
+                      </div>
+                      <Link
+                        className="mt-2 flex h-9 items-center gap-2 rounded-md px-2 text-xs font-bold text-[#34423a] no-underline hover:bg-[#f7faf4]"
+                        href="/profile"
+                      >
+                        <UserRound className="size-4" />
+                        Profile
+                      </Link>
+                      <button
+                        className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-bold text-[#a33b2f] hover:bg-[#fff4f1] disabled:opacity-70"
+                        type="button"
+                        disabled={processing}
+                        onClick={logout}
+                      >
+                        <LogOut className="size-4" />
+                        {processing ? 'Logging out...' : 'Logout'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div className="px-5 py-6 lg:px-6">{children}</div>
+        </section>
+      </div>
+    </main>
+  );
+}
