@@ -73,13 +73,17 @@ function initials(name: string) {
 function SidebarLink({ collapsed, item }: { collapsed: boolean; item: MenuItem }) {
   const Icon = iconMap[item.icon] ?? ClipboardList;
   const active = typeof window !== 'undefined' && window.location.pathname === item.href;
-  const className = active
-    ? 'flex h-8 items-center gap-2 rounded-md bg-[#27615a] px-2 text-[0.72rem] font-bold text-white'
-    : 'flex h-8 items-center gap-2 rounded-md px-2 text-[0.72rem] font-semibold text-[#3e4b44] hover:bg-[#e8efe8] hover:text-[#17201b]';
+  const className = collapsed
+    ? active
+      ? 'grid size-10 place-items-center overflow-visible rounded-md bg-[#27615a] text-white'
+      : 'grid size-10 place-items-center overflow-visible rounded-md text-[#3e4b44] hover:bg-[#e8efe8] hover:text-[#17201b]'
+    : active
+      ? 'flex h-8 items-center gap-2 rounded-md bg-[#27615a] px-2 text-[0.72rem] font-bold text-white'
+      : 'flex h-8 items-center gap-2 rounded-md px-2 text-[0.72rem] font-semibold text-[#3e4b44] hover:bg-[#e8efe8] hover:text-[#17201b]';
 
   return (
     <Link className={className} href={item.href} title={collapsed ? item.label : undefined}>
-      <Icon className="size-4 shrink-0" />
+      <Icon className={collapsed ? 'h-5 w-5 shrink-0 overflow-visible' : 'size-4 shrink-0'} />
       {!collapsed && <span className="truncate">{item.label}</span>}
       {active && !collapsed && <span className="ml-auto size-1.5 rounded-full bg-white" />}
     </Link>
@@ -176,13 +180,13 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
       <div
         className={
           collapsed
-            ? 'grid min-h-screen lg:grid-cols-[64px_1fr]'
-            : 'grid min-h-screen lg:grid-cols-[224px_1fr]'
+            ? 'grid min-h-screen xl:grid-cols-[64px_1fr]'
+            : 'grid min-h-screen xl:grid-cols-[224px_1fr]'
         }
       >
-        <aside className="border-b border-[#17201b]/10 bg-[#fffffb] lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r">
-          <div className="flex h-full flex-col px-2.5 py-3">
-            <div className="mb-3 flex items-center justify-between gap-2">
+        <aside className="border-b border-[#17201b]/10 bg-[#fffffb] xl:sticky xl:top-0 xl:h-screen xl:border-b-0 xl:border-r">
+          <div className={collapsed ? 'flex h-full flex-col items-center px-2 py-3' : 'flex h-full flex-col px-2.5 py-3'}>
+            <div className={collapsed ? 'mb-4 grid justify-items-center gap-2' : 'mb-3 flex items-center justify-between gap-2'}>
               <Link
                 className={
                   collapsed
@@ -204,7 +208,11 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
               </Link>
 
               <button
-                className="hidden size-7 place-items-center rounded-md border border-[#17201b]/10 bg-[#f7faf4] text-[#34423a] hover:bg-[#e8efe8] lg:grid"
+                className={
+                  collapsed
+                    ? 'hidden size-7 place-items-center rounded-md border border-[#17201b]/10 bg-[#fffffb] text-[#59635d] hover:bg-[#e8efe8] focus:outline-none focus:ring-2 focus:ring-[#27615a]/25 xl:grid'
+                    : 'hidden size-7 place-items-center rounded-md border border-[#17201b]/10 bg-[#f7faf4] text-[#34423a] hover:bg-[#e8efe8] focus:outline-none focus:ring-2 focus:ring-[#27615a]/25 xl:grid'
+                }
                 type="button"
                 aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 onClick={() => setCollapsed((value) => !value)}
@@ -217,7 +225,7 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
               </button>
             </div>
 
-            <nav className="grid gap-2 overflow-y-auto" aria-label="Workspace navigation">
+            <nav className={collapsed ? 'grid justify-items-center gap-3 overflow-y-auto pb-0' : 'flex gap-2 overflow-x-auto pb-1 xl:grid xl:overflow-y-auto xl:pb-0'} aria-label="Workspace navigation">
               {(Object.keys(groupedMenu) as MenuItem['group'][]).map((group) => {
                 const items = groupedMenu[group];
 
@@ -226,7 +234,7 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
                 }
 
                 return (
-                  <div className="grid gap-0.5" key={group}>
+                  <div className={collapsed ? 'grid justify-items-center gap-2' : 'flex shrink-0 gap-1 xl:grid xl:gap-0.5'} key={group}>
                     {!collapsed && (
                       <p className="px-2 py-1 text-[0.6rem] font-black uppercase text-[#8a6a4a]">
                         {group}
@@ -243,7 +251,7 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
         </aside>
 
         <section className="min-w-0">
-          <header className="sticky top-0 z-10 border-b border-[#17201b]/10 bg-[#fffffb]/95 px-4 py-2 backdrop-blur lg:px-5">
+          <header className="sticky top-0 z-10 border-b border-[#17201b]/10 bg-[#fffffb]/95 px-3 py-2 backdrop-blur sm:px-4 xl:px-5">
             <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">
                 <p className="text-[0.6rem] font-extrabold uppercase text-[#27615a]">Workspace</p>
@@ -254,7 +262,7 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <div className="relative min-w-[220px] flex-1 xl:w-[300px] xl:flex-none">
+                <div className="relative min-w-0 flex-[1_1_180px] xl:w-[300px] xl:flex-none">
                   <label className="flex h-8 items-center gap-2 rounded-md border border-[#17201b]/10 bg-[#f7faf4] px-2.5 text-sm text-[#59635d] focus-within:border-[#27615a]/40 focus-within:bg-[#fffffb]">
                     <Search className="size-4 shrink-0" />
                     <input
@@ -323,7 +331,7 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
                   </button>
 
                   {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-80 rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-3 shadow-[0_18px_45px_rgba(23,32,27,0.12)]">
+                    <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-3 shadow-[0_18px_45px_rgba(23,32,27,0.12)]">
                       <p className="px-1 text-xs font-black uppercase text-[#27615a]">
                         Notifications
                       </p>
@@ -362,7 +370,7 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
                   </button>
 
                   {showProfileMenu && (
-                    <div className="absolute right-0 mt-2 w-64 rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-3 shadow-[0_18px_45px_rgba(23,32,27,0.12)]">
+                    <div className="absolute right-0 mt-2 w-[min(16rem,calc(100vw-1.5rem))] rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-3 shadow-[0_18px_45px_rgba(23,32,27,0.12)]">
                       <div className="border-b border-[#17201b]/10 pb-3">
                         <p className="text-sm font-black text-[#17201b]">{user.name}</p>
                         <p className="mt-0.5 truncate text-xs text-[#59635d]">{user.email}</p>
@@ -390,7 +398,7 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
             </div>
           </header>
 
-          <div className="px-4 py-4 lg:px-5">{children}</div>
+          <div className="px-3 py-3 sm:px-4 sm:py-4 xl:px-5">{children}</div>
         </section>
       </div>
     </main>

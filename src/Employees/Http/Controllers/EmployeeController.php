@@ -192,16 +192,14 @@ final readonly class EmployeeController
     }
 
     /**
-     * @return array{name: string, icon: string, search: string, employmentStatus: string, accessStatus: string, sortColumn: string, sortDirection: string, columns: array<int, string>}
+     * @return array{name: string, icon: string, filterQuery: string, sortColumn: string, sortDirection: string, columns: array<int, string>}
      */
     private function viewPayload(Request $request): array
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'icon' => ['required', 'string', 'max:255'],
-            'search' => ['nullable', 'string', 'max:255'],
-            'employmentStatus' => ['required', 'string', 'max:255'],
-            'accessStatus' => ['required', 'string', 'max:255'],
+            'filterQuery' => ['nullable', 'string', 'max:1000'],
             'sortColumn' => ['required', 'string', 'max:255'],
             'sortDirection' => ['required', 'string', 'in:asc,desc'],
             'columns' => ['required', 'array', 'min:1'],
@@ -211,9 +209,7 @@ final readonly class EmployeeController
         return [
             'name' => $this->stringValue($validated['name'] ?? null, 'Employees'),
             'icon' => $this->stringValue($validated['icon'] ?? null, 'eye'),
-            'search' => $this->stringValue($validated['search'] ?? null, ''),
-            'employmentStatus' => $this->stringValue($validated['employmentStatus'] ?? null, 'all'),
-            'accessStatus' => $this->stringValue($validated['accessStatus'] ?? null, 'all'),
+            'filterQuery' => $this->stringValue($validated['filterQuery'] ?? null, ''),
             'sortColumn' => $this->stringValue($validated['sortColumn'] ?? null, 'employee'),
             'sortDirection' => $this->stringValue($validated['sortDirection'] ?? null, 'asc'),
             'columns' => $this->stringList($validated['columns'] ?? []),

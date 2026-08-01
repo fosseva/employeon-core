@@ -16,9 +16,7 @@ return new class extends Migration
             $table->string('key');
             $table->string('name');
             $table->string('icon')->default('eye');
-            $table->string('search')->default('');
-            $table->string('employment_status')->default('all');
-            $table->string('access_status')->default('all');
+            $table->text('filter_query')->nullable();
             $table->string('sort_column')->default('employee');
             $table->string('sort_direction')->default('asc');
             $table->json('columns');

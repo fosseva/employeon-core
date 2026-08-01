@@ -17,7 +17,7 @@ final readonly class EmployeeViewManager
     ) {}
 
     /**
-     * @return array<int, array{id: string, name: string, icon: string, search: string, employmentStatus: string, accessStatus: string, sortColumn: string, sortDirection: string, columns: array<int, string>, isDefault: bool}>
+     * @return array<int, array{id: string, name: string, icon: string, filterQuery: string, sortColumn: string, sortDirection: string, columns: array<int, string>, isDefault: bool}>
      */
     public function views(?string $ownerEmail): array
     {
@@ -42,7 +42,7 @@ final readonly class EmployeeViewManager
                 continue;
             }
 
-            $views[$index] = $view + ['isDefault' => true];
+            $views[$index] = [...$view, 'isDefault' => true];
         }
 
         return $views;
@@ -102,7 +102,7 @@ final readonly class EmployeeViewManager
     }
 
     /**
-     * @return array<int, array{id: string, name: string, icon: string, search: string, employmentStatus: string, accessStatus: string, sortColumn: string, sortDirection: string, columns: array<int, string>, isDefault: bool}>
+     * @return array<int, array{id: string, name: string, icon: string, filterQuery: string, sortColumn: string, sortDirection: string, columns: array<int, string>, isDefault: bool}>
      */
     private function defaultViews(): array
     {
@@ -111,9 +111,7 @@ final readonly class EmployeeViewManager
                 'id' => 'all',
                 'name' => 'All employees',
                 'icon' => 'users',
-                'search' => '',
-                'employmentStatus' => 'all',
-                'accessStatus' => 'all',
+                'filterQuery' => '',
                 'sortColumn' => 'employee',
                 'sortDirection' => 'asc',
                 'columns' => ['employee', 'work_email', 'employment_status', 'access_status'],
@@ -123,9 +121,7 @@ final readonly class EmployeeViewManager
                 'id' => 'active',
                 'name' => 'Active',
                 'icon' => 'briefcase',
-                'search' => '',
-                'employmentStatus' => 'active',
-                'accessStatus' => 'all',
+                'filterQuery' => 'employment:active',
                 'sortColumn' => 'employee',
                 'sortDirection' => 'asc',
                 'columns' => ['employee', 'work_email', 'joined_on', 'access_status'],
@@ -135,9 +131,7 @@ final readonly class EmployeeViewManager
                 'id' => 'invited',
                 'name' => 'Invited',
                 'icon' => 'mail',
-                'search' => '',
-                'employmentStatus' => 'all',
-                'accessStatus' => 'invited',
+                'filterQuery' => 'access:invited',
                 'sortColumn' => 'joined_on',
                 'sortDirection' => 'desc',
                 'columns' => ['employee', 'work_email', 'access_status', 'user_id'],
@@ -147,9 +141,7 @@ final readonly class EmployeeViewManager
                 'id' => 'access-pending',
                 'name' => 'Access pending',
                 'icon' => 'clock',
-                'search' => '',
-                'employmentStatus' => 'all',
-                'accessStatus' => 'not_invited',
+                'filterQuery' => 'access:not_invited',
                 'sortColumn' => 'employee',
                 'sortDirection' => 'asc',
                 'columns' => ['employee', 'work_email', 'access_status'],
@@ -173,7 +165,7 @@ final readonly class EmployeeViewManager
     }
 
     /**
-     * @return array{id: string, name: string, icon: string, search: string, employmentStatus: string, accessStatus: string, sortColumn: string, sortDirection: string, columns: array<int, string>, isDefault: bool}
+     * @return array{id: string, name: string, icon: string, filterQuery: string, sortColumn: string, sortDirection: string, columns: array<int, string>, isDefault: bool}
      */
     private function rowToView(object $row): array
     {
@@ -181,9 +173,7 @@ final readonly class EmployeeViewManager
             'id' => $this->stringValue($row->key ?? null, 'all'),
             'name' => $this->stringValue($row->name ?? null, 'Employees'),
             'icon' => $this->stringValue($row->icon ?? null, 'eye'),
-            'search' => $this->stringValue($row->search ?? null),
-            'employmentStatus' => $this->stringValue($row->employment_status ?? null, 'all'),
-            'accessStatus' => $this->stringValue($row->access_status ?? null, 'all'),
+            'filterQuery' => $this->stringValue($row->filter_query ?? null),
             'sortColumn' => $this->stringValue($row->sort_column ?? null, 'employee'),
             'sortDirection' => $this->stringValue($row->sort_direction ?? null, 'asc'),
             'columns' => $this->stringList($row->columns ?? null, ['employee']),
@@ -200,9 +190,7 @@ final readonly class EmployeeViewManager
         return [
             'name' => $this->stringValue($data['name'] ?? null, 'Employees'),
             'icon' => $this->stringValue($data['icon'] ?? null, 'eye'),
-            'search' => $this->stringValue($data['search'] ?? null),
-            'employment_status' => $this->stringValue($data['employmentStatus'] ?? null, 'all'),
-            'access_status' => $this->stringValue($data['accessStatus'] ?? null, 'all'),
+            'filter_query' => $this->stringValue($data['filterQuery'] ?? null),
             'sort_column' => $this->stringValue($data['sortColumn'] ?? null, 'employee'),
             'sort_direction' => $this->stringValue($data['sortDirection'] ?? null, 'asc'),
             'columns' => json_encode($this->stringList($data['columns'] ?? null, ['employee'])) ?: '[]',

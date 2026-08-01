@@ -73,9 +73,7 @@ beforeEach(function (): void {
         $table->string('key');
         $table->string('name');
         $table->string('icon')->default('eye');
-        $table->string('search')->default('');
-        $table->string('employment_status')->default('all');
-        $table->string('access_status')->default('all');
+        $table->text('filter_query')->nullable();
         $table->string('sort_column')->default('employee');
         $table->string('sort_direction')->default('asc');
         $table->json('columns');
@@ -149,9 +147,7 @@ it('persists employee directory views in the database', function (): void {
     $this->post('/employees/views', [
         'name' => 'Work email audit',
         'icon' => 'mail',
-        'search' => 'audit',
-        'employmentStatus' => 'active',
-        'accessStatus' => 'all',
+        'filterQuery' => 'audit employment:active',
         'sortColumn' => 'work_email',
         'sortDirection' => 'desc',
         'columns' => ['employee', 'work_email', 'joined_on'],
@@ -162,7 +158,7 @@ it('persists employee directory views in the database', function (): void {
     expect($view)->not->toBeNull()
         ->and($view?->owner_email)->toBe('admin@example.com')
         ->and($view?->icon)->toBe('mail')
-        ->and($view?->search)->toBe('audit')
+        ->and($view?->filter_query)->toBe('audit employment:active')
         ->and($view?->sort_column)->toBe('work_email');
 
     $this->get('/employees')
@@ -171,7 +167,7 @@ it('persists employee directory views in the database', function (): void {
             ->component('Employees/Index')
             ->where('views.4.name', 'Work email audit')
             ->where('views.4.icon', 'mail')
-            ->where('views.4.search', 'audit')
+            ->where('views.4.filterQuery', 'audit employment:active')
             ->where('views.4.sortColumn', 'work_email')
             ->where('views.4.columns.1', 'work_email')
         );
@@ -179,15 +175,14 @@ it('persists employee directory views in the database', function (): void {
     $this->put('/employees/views/'.$view?->key, [
         'name' => 'Updated audit',
         'icon' => 'shield',
-        'search' => '',
-        'employmentStatus' => 'all',
-        'accessStatus' => 'invited',
+        'filterQuery' => 'access:invited',
         'sortColumn' => 'employee',
         'sortDirection' => 'asc',
         'columns' => ['employee', 'access_status'],
     ])->assertRedirect();
 
     expect(DB::table('employee_views')->where('id', $view?->id)->value('name'))->toBe('Updated audit');
+    expect(DB::table('employee_views')->where('id', $view?->id)->value('filter_query'))->toBe('access:invited');
 
     $this->delete('/employees/views/'.$view?->key)->assertRedirect();
 
