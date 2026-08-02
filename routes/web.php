@@ -8,6 +8,7 @@ use Employeon\Employees\Http\Controllers\EmployeeInvitationController;
 use Employeon\Http\Controllers\AccessController;
 use Employeon\Http\Middleware\EnsureEmployeonSession;
 use Employeon\Support\ModuleRegistry;
+use Employeon\Support\SessionUserManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -31,7 +32,7 @@ Route::middleware('web')->group(function (): void {
 
     Route::get('/employee-invitations/{token}', [EmployeeInvitationController::class, 'accept'])->name('employeon.employee-invitations.accept');
 
-    Route::post('/login', function (Request $request) {
+    Route::post('/login', function (Request $request, SessionUserManager $sessionUserManager) {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
@@ -39,13 +40,7 @@ Route::middleware('web')->group(function (): void {
         ]);
 
         $email = is_string($credentials['email'] ?? null) ? $credentials['email'] : '';
-        $name = trim(str_replace(['.', '_', '-'], ' ', strstr($email, '@', true) ?: $email));
-
-        $request->session()->put('employeon.user', [
-            'name' => $name !== '' ? ucwords($name) : 'Employeon User',
-            'email' => $email,
-            'role' => 'User',
-        ]);
+        $sessionUserManager->login($request, $email);
 
         return redirect()->route('employeon.profile');
     })->name('employeon.login');
@@ -59,9 +54,8 @@ Route::middleware('web')->group(function (): void {
             ]);
         })->name('employeon.profile');
 
-        Route::post('/logout', function (Request $request) {
-            $request->session()->forget('employeon.user');
-            $request->session()->regenerateToken();
+        Route::post('/logout', function (Request $request, SessionUserManager $sessionUserManager) {
+            $sessionUserManager->logout($request);
 
             return redirect()->route('login');
         })->name('employeon.logout');
@@ -69,6 +63,7 @@ Route::middleware('web')->group(function (): void {
         Route::get('/employees', [EmployeeController::class, 'index'])->name('employeon.employees.index');
         Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employeon.employees.create');
         Route::post('/employees', [EmployeeController::class, 'store'])->name('employeon.employees.store');
+        Route::post('/employees/bulk-delete', [EmployeeController::class, 'bulkDestroy'])->name('employeon.employees.bulk-destroy');
         Route::post('/employees/views', [EmployeeController::class, 'storeView'])->name('employeon.employees.views.store');
         Route::put('/employees/views/{view}', [EmployeeController::class, 'updateView'])->name('employeon.employees.views.update');
         Route::delete('/employees/views/{view}', [EmployeeController::class, 'destroyView'])->name('employeon.employees.views.destroy');

@@ -15,9 +15,12 @@ return [
         'user_email_column' => 'email',
     ],
 
+    'saved_views' => [
+        'table' => 'saved_views',
+    ],
+
     'employees' => [
         'table' => 'employees',
-        'views_table' => 'employee_views',
 
         'invitations' => [
             'send_notification' => true,

@@ -33,6 +33,7 @@ final readonly class EmployeeInvitationController
         }
 
         $request->session()->put('employeon.user', [
+            'user_id' => $acceptedInvitation['user_id'],
             'name' => $acceptedInvitation['name'],
             'email' => $acceptedInvitation['email'],
             'role' => $acceptedInvitation['role'],

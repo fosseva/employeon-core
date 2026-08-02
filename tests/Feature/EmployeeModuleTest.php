@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Employeon\Employees\Database\Seeders\EmployeeSeeder;
 use Employeon\Employees\Events\EmployeeInvited;
 use Employeon\Employees\Notifications\EmployeeInvitationNotification;
 use Employeon\Tests\Fixtures\AccessUser;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
@@ -13,20 +15,13 @@ use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia;
 
 beforeEach(function (): void {
-    $this->withSession([
-        'employeon.user' => [
-            'name' => 'Admin User',
-            'email' => 'admin@example.com',
-            'role' => 'Admin',
-        ],
-    ]);
-
     Schema::dropIfExists('attendance_entries');
-    Schema::dropIfExists('employee_views');
+    Schema::dropIfExists('saved_views');
     Schema::dropIfExists('access_users');
     Schema::dropIfExists('employees');
 
     config()->set('employeon.access.user_model', AccessUser::class);
+    config()->set('auth.providers.users.model', AccessUser::class);
 
     Schema::create('employees', function (Blueprint $table): void {
         $table->id();
@@ -56,6 +51,24 @@ beforeEach(function (): void {
         $table->timestamps();
     });
 
+    $adminUserId = DB::table('access_users')->insertGetId([
+        'name' => 'Admin User',
+        'email' => 'admin@example.com',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $adminUser = AccessUser::query()->findOrFail($adminUserId);
+
+    $this->actingAs($adminUser);
+
+    $this->withSession([
+        'employeon.user' => [
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'role' => 'Admin',
+        ],
+    ]);
+
     Schema::create('attendance_entries', function (Blueprint $table): void {
         $table->id();
         $table->unsignedBigInteger('employee_id');
@@ -67,18 +80,23 @@ beforeEach(function (): void {
         $table->timestamps();
     });
 
-    Schema::create('employee_views', function (Blueprint $table): void {
+    Schema::create('saved_views', function (Blueprint $table): void {
         $table->id();
-        $table->string('owner_email')->nullable()->index();
+        $table->string('owner_type');
+        $table->unsignedBigInteger('owner_id');
+        $table->string('viewable_type');
         $table->string('key');
         $table->string('name');
         $table->string('icon')->default('eye');
         $table->text('filter_query')->nullable();
         $table->string('sort_column')->default('employee');
         $table->string('sort_direction')->default('asc');
+        $table->json('sorts')->nullable();
         $table->json('columns');
         $table->timestamps();
-        $table->unique(['owner_email', 'key']);
+        $table->index(['owner_type', 'owner_id']);
+        $table->index('viewable_type');
+        $table->unique(['owner_type', 'owner_id', 'viewable_type', 'key']);
     });
 });
 
@@ -150,16 +168,27 @@ it('persists employee directory views in the database', function (): void {
         'filterQuery' => 'audit employment:active',
         'sortColumn' => 'work_email',
         'sortDirection' => 'desc',
+        'sorts' => [
+            ['column' => 'work_email', 'direction' => 'desc'],
+            ['column' => 'employee', 'direction' => 'asc'],
+        ],
         'columns' => ['employee', 'work_email', 'joined_on'],
     ])->assertRedirect();
 
-    $view = DB::table('employee_views')->where('name', 'Work email audit')->first();
+    $view = DB::table('saved_views')->where('name', 'Work email audit')->first();
+    $ownerId = DB::table('access_users')->where('email', 'admin@example.com')->value('id');
 
     expect($view)->not->toBeNull()
-        ->and($view?->owner_email)->toBe('admin@example.com')
+        ->and($view?->owner_type)->toBe(AccessUser::class)
+        ->and($view?->owner_id)->toBe($ownerId)
+        ->and($view?->viewable_type)->toBe('employees')
         ->and($view?->icon)->toBe('mail')
         ->and($view?->filter_query)->toBe('audit employment:active')
-        ->and($view?->sort_column)->toBe('work_email');
+        ->and($view?->sort_column)->toBe('work_email')
+        ->and(json_decode((string) $view?->sorts, true))->toBe([
+            ['column' => 'work_email', 'direction' => 'desc'],
+            ['column' => 'employee', 'direction' => 'asc'],
+        ]);
 
     $this->get('/employees')
         ->assertOk()
@@ -169,6 +198,7 @@ it('persists employee directory views in the database', function (): void {
             ->where('views.4.icon', 'mail')
             ->where('views.4.filterQuery', 'audit employment:active')
             ->where('views.4.sortColumn', 'work_email')
+            ->where('views.4.sorts.1.column', 'employee')
             ->where('views.4.columns.1', 'work_email')
         );
 
@@ -178,15 +208,147 @@ it('persists employee directory views in the database', function (): void {
         'filterQuery' => 'access:invited',
         'sortColumn' => 'employee',
         'sortDirection' => 'asc',
+        'sorts' => [
+            ['column' => 'employee', 'direction' => 'asc'],
+        ],
         'columns' => ['employee', 'access_status'],
     ])->assertRedirect();
 
-    expect(DB::table('employee_views')->where('id', $view?->id)->value('name'))->toBe('Updated audit');
-    expect(DB::table('employee_views')->where('id', $view?->id)->value('filter_query'))->toBe('access:invited');
+    expect(DB::table('saved_views')->where('id', $view?->id)->value('name'))->toBe('Updated audit');
+    expect(DB::table('saved_views')->where('id', $view?->id)->value('filter_query'))->toBe('access:invited');
 
     $this->delete('/employees/views/'.$view?->key)->assertRedirect();
 
-    expect(DB::table('employee_views')->where('id', $view?->id)->exists())->toBeFalse();
+    expect(DB::table('saved_views')->where('id', $view?->id)->exists())->toBeFalse();
+});
+
+it('does not load saved views for other viewable types on the employees page', function (): void {
+    $this->withoutVite();
+
+    $ownerId = DB::table('access_users')->where('email', 'admin@example.com')->value('id');
+
+    DB::table('saved_views')->insert([
+        'owner_type' => AccessUser::class,
+        'owner_id' => $ownerId,
+        'viewable_type' => 'attendance',
+        'key' => 'custom-attendance',
+        'name' => 'Attendance audit',
+        'icon' => 'clock',
+        'filter_query' => 'status:absent',
+        'sort_column' => 'attendance_date',
+        'sort_direction' => 'desc',
+        'sorts' => json_encode([['column' => 'attendance_date', 'direction' => 'desc']]),
+        'columns' => json_encode(['employee', 'attendance_date']),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $this->get('/employees')
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Employees/Index')
+            ->where('views.0.name', 'All employees')
+            ->missing('views.4')
+        );
+});
+
+it('persists employee views after using the starter login flow', function (): void {
+    $this->withoutVite();
+
+    $this->post('/logout')->assertRedirect('/login');
+
+    $this->post('/login', [
+        'email' => 'starter@example.com',
+        'password' => 'password',
+    ])->assertRedirect('/profile');
+
+    $this->post('/employees/views', [
+        'name' => 'Starter login view',
+        'icon' => 'star',
+        'filterQuery' => 'employment:active',
+        'sortColumn' => 'employee',
+        'sortDirection' => 'asc',
+        'sorts' => [
+            ['column' => 'employee', 'direction' => 'asc'],
+        ],
+        'columns' => ['employee', 'work_email'],
+    ])->assertRedirect();
+
+    $ownerId = DB::table('access_users')->where('email', 'starter@example.com')->value('id');
+    $view = DB::table('saved_views')->where('name', 'Starter login view')->first();
+
+    expect($ownerId)->not->toBeNull()
+        ->and($view)->not->toBeNull()
+        ->and($view?->owner_type)->toBe(AccessUser::class)
+        ->and($view?->owner_id)->toBe($ownerId)
+        ->and($view?->viewable_type)->toBe('employees');
+});
+
+it('persists employee views with a client generated custom key', function (): void {
+    $this->withoutVite();
+
+    $this->post('/login', [
+        'email' => 'starter-key@example.com',
+        'password' => 'password',
+    ])->assertRedirect('/profile');
+
+    $this->put('/employees/views/custom-client-key', [
+        'name' => 'Client key view',
+        'icon' => 'star',
+        'filterQuery' => '',
+        'sortColumn' => 'employee',
+        'sortDirection' => 'asc',
+        'sorts' => [
+            ['column' => 'employee', 'direction' => 'asc'],
+        ],
+        'columns' => ['employee', 'work_email'],
+    ])->assertRedirect();
+
+    $ownerId = DB::table('access_users')->where('email', 'starter-key@example.com')->value('id');
+
+    expect(DB::table('saved_views')
+        ->where('owner_type', AccessUser::class)
+        ->where('owner_id', $ownerId)
+        ->where('viewable_type', 'employees')
+        ->where('key', 'custom-client-key')
+        ->where('name', 'Client key view')
+        ->exists())->toBeTrue();
+});
+
+it('persists employee views when the session contains a real user id', function (): void {
+    $this->withoutVite();
+
+    Auth::logout();
+
+    $ownerId = DB::table('access_users')->where('email', 'admin@example.com')->value('id');
+
+    $this->withSession([
+        'employeon.user' => [
+            'user_id' => $ownerId,
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'role' => 'Admin',
+        ],
+    ]);
+
+    $this->put('/employees/views/custom-session-owner', [
+        'name' => 'Session owner view',
+        'icon' => 'star',
+        'filterQuery' => '',
+        'sortColumn' => 'employee',
+        'sortDirection' => 'asc',
+        'sorts' => [
+            ['column' => 'employee', 'direction' => 'asc'],
+        ],
+        'columns' => ['employee', 'work_email'],
+    ])->assertRedirect();
+
+    expect(DB::table('saved_views')
+        ->where('owner_type', AccessUser::class)
+        ->where('owner_id', $ownerId)
+        ->where('viewable_type', 'employees')
+        ->where('key', 'custom-session-owner')
+        ->exists())->toBeTrue();
 });
 
 it('invites employees by creating and linking a user account', function (): void {
@@ -377,4 +539,76 @@ it('updates and deletes employees', function (): void {
     $this->delete("/employees/{$employeeId}")->assertRedirect();
 
     expect(DB::table('employees')->where('id', $employeeId)->exists())->toBeFalse();
+});
+
+it('bulk deletes selected employees and their attendance entries', function (): void {
+    $firstEmployeeId = DB::table('employees')->insertGetId([
+        'employee_number' => 'EMP-101',
+        'first_name' => 'Asha',
+        'last_name' => 'Rao',
+        'display_name' => 'Asha Rao',
+        'work_email' => 'asha.bulk@example.com',
+        'employment_status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $secondEmployeeId = DB::table('employees')->insertGetId([
+        'employee_number' => 'EMP-102',
+        'first_name' => 'Rohan',
+        'last_name' => 'Mehta',
+        'display_name' => 'Rohan Mehta',
+        'work_email' => 'rohan.bulk@example.com',
+        'employment_status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $keptEmployeeId = DB::table('employees')->insertGetId([
+        'employee_number' => 'EMP-103',
+        'first_name' => 'Nina',
+        'last_name' => 'Shah',
+        'display_name' => 'Nina Shah',
+        'work_email' => 'nina.bulk@example.com',
+        'employment_status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    DB::table('attendance_entries')->insert([
+        [
+            'employee_id' => $firstEmployeeId,
+            'attendance_date' => '2026-08-01',
+            'status' => 'present',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'employee_id' => $keptEmployeeId,
+            'attendance_date' => '2026-08-01',
+            'status' => 'present',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+    ]);
+
+    $this->post('/employees/bulk-delete', [
+        'employee_ids' => [$firstEmployeeId, $secondEmployeeId],
+    ])->assertRedirect();
+
+    expect(DB::table('employees')->whereIn('id', [$firstEmployeeId, $secondEmployeeId])->exists())->toBeFalse()
+        ->and(DB::table('employees')->where('id', $keptEmployeeId)->exists())->toBeTrue()
+        ->and(DB::table('attendance_entries')->where('employee_id', $firstEmployeeId)->exists())->toBeFalse()
+        ->and(DB::table('attendance_entries')->where('employee_id', $keptEmployeeId)->exists())->toBeTrue();
+});
+
+it('seeds one thousand employees across employment and access stages', function (): void {
+    $this->seed(EmployeeSeeder::class);
+
+    expect(DB::table('employees')->count())->toBe(1000)
+        ->and(DB::table('employees')->where('employment_status', 'active')->count())->toBeGreaterThan(0)
+        ->and(DB::table('employees')->where('employment_status', 'inactive')->count())->toBeGreaterThan(0)
+        ->and(DB::table('employees')->where('employment_status', 'on_leave')->count())->toBeGreaterThan(0)
+        ->and(DB::table('employees')->where('access_status', 'not_invited')->count())->toBeGreaterThan(0)
+        ->and(DB::table('employees')->where('access_status', 'invited')->count())->toBeGreaterThan(0)
+        ->and(DB::table('employees')->where('access_status', 'active')->count())->toBeGreaterThan(0)
+        ->and(DB::table('employees')->where('access_status', 'disabled')->count())->toBeGreaterThan(0);
 });

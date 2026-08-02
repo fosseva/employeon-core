@@ -180,12 +180,12 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
       <div
         className={
           collapsed
-            ? 'grid min-h-screen xl:grid-cols-[64px_1fr]'
-            : 'grid min-h-screen xl:grid-cols-[224px_1fr]'
+            ? 'grid min-h-screen min-w-0 xl:grid-cols-[64px_1fr]'
+            : 'grid min-h-screen min-w-0 xl:grid-cols-[224px_1fr]'
         }
       >
-        <aside className="border-b border-[#17201b]/10 bg-[#fffffb] xl:sticky xl:top-0 xl:h-screen xl:border-b-0 xl:border-r">
-          <div className={collapsed ? 'flex h-full flex-col items-center px-2 py-3' : 'flex h-full flex-col px-2.5 py-3'}>
+        <aside className="min-w-0 border-b border-[#17201b]/10 bg-[#fffffb] xl:sticky xl:top-0 xl:h-screen xl:border-b-0 xl:border-r">
+          <div className={collapsed ? 'flex h-full min-w-0 flex-col items-center px-2 py-3' : 'flex h-full min-w-0 flex-col px-2.5 py-3'}>
             <div className={collapsed ? 'mb-4 grid justify-items-center gap-2' : 'mb-3 flex items-center justify-between gap-2'}>
               <Link
                 className={
@@ -225,7 +225,7 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
               </button>
             </div>
 
-            <nav className={collapsed ? 'grid justify-items-center gap-3 overflow-y-auto pb-0' : 'flex gap-2 overflow-x-auto pb-1 xl:grid xl:overflow-y-auto xl:pb-0'} aria-label="Workspace navigation">
+            <nav className={collapsed ? 'grid min-w-0 justify-items-center gap-3 overflow-y-auto pb-0' : 'flex min-w-0 gap-2 overflow-x-auto pb-1 xl:grid xl:overflow-y-auto xl:pb-0'} aria-label="Workspace navigation">
               {(Object.keys(groupedMenu) as MenuItem['group'][]).map((group) => {
                 const items = groupedMenu[group];
 
@@ -250,7 +250,7 @@ export default function AppLayout({ children, title, subtitle, user }: AppLayout
           </div>
         </aside>
 
-        <section className="min-w-0">
+        <section className="min-w-0 overflow-x-hidden">
           <header className="sticky top-0 z-10 border-b border-[#17201b]/10 bg-[#fffffb]/95 px-3 py-2 backdrop-blur sm:px-4 xl:px-5">
             <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Employeon\Tests\Fixtures;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-final class AccessUser extends Model
+final class AccessUser extends Authenticatable
 {
     use Notifiable;
 

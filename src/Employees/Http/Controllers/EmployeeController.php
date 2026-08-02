@@ -6,6 +6,7 @@ namespace Employeon\Employees\Http\Controllers;
 
 use Employeon\Employees\EmployeeManager;
 use Employeon\Employees\EmployeeViewManager;
+use Employeon\Support\SavedViewOwnerResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,7 +14,7 @@ use Inertia\Response;
 
 final readonly class EmployeeController
 {
-    public function index(Request $request, EmployeeManager $employeeManager, EmployeeViewManager $employeeViewManager): Response
+    public function index(Request $request, EmployeeManager $employeeManager, EmployeeViewManager $employeeViewManager, SavedViewOwnerResolver $ownerResolver): Response
     {
         return Inertia::render('Employees/Index', array_replace_recursive(
             [
@@ -22,7 +23,7 @@ final readonly class EmployeeController
                     'title' => 'Employees',
                     'subtitle' => 'Employee directory and records',
                 ],
-                'views' => $employeeViewManager->views($this->ownerEmail($request)),
+                'views' => $employeeViewManager->views($ownerResolver->resolve($request)),
             ],
             $employeeManager->pageData(),
         ));
@@ -89,23 +90,35 @@ final readonly class EmployeeController
         return back()->with('status', 'Employee deleted.');
     }
 
-    public function storeView(Request $request, EmployeeViewManager $employeeViewManager): RedirectResponse
+    public function bulkDestroy(Request $request, EmployeeManager $employeeManager): RedirectResponse
     {
-        $employeeViewManager->create($this->ownerEmail($request), $this->viewPayload($request));
+        $validated = $request->validate([
+            'employee_ids' => ['required', 'array', 'min:1'],
+            'employee_ids.*' => ['required', 'integer'],
+        ]);
+
+        $employeeManager->deleteMany($this->integerList($validated['employee_ids'] ?? []));
+
+        return back()->with('status', 'Employees deleted.');
+    }
+
+    public function storeView(Request $request, EmployeeViewManager $employeeViewManager, SavedViewOwnerResolver $ownerResolver): RedirectResponse
+    {
+        $employeeViewManager->create($ownerResolver->resolve($request), $this->viewPayload($request));
 
         return back()->with('status', 'Employee view created.');
     }
 
-    public function updateView(Request $request, EmployeeViewManager $employeeViewManager, string $view): RedirectResponse
+    public function updateView(Request $request, EmployeeViewManager $employeeViewManager, SavedViewOwnerResolver $ownerResolver, string $view): RedirectResponse
     {
-        $employeeViewManager->save($this->ownerEmail($request), $view, $this->viewPayload($request));
+        $employeeViewManager->save($ownerResolver->resolve($request), $view, $this->viewPayload($request));
 
         return back()->with('status', 'Employee view saved.');
     }
 
-    public function destroyView(Request $request, EmployeeViewManager $employeeViewManager, string $view): RedirectResponse
+    public function destroyView(Request $request, EmployeeViewManager $employeeViewManager, SavedViewOwnerResolver $ownerResolver, string $view): RedirectResponse
     {
-        $employeeViewManager->delete($this->ownerEmail($request), $view);
+        $employeeViewManager->delete($ownerResolver->resolve($request), $view);
 
         return back()->with('status', 'Employee view deleted.');
     }
@@ -192,7 +205,7 @@ final readonly class EmployeeController
     }
 
     /**
-     * @return array{name: string, icon: string, filterQuery: string, sortColumn: string, sortDirection: string, columns: array<int, string>}
+     * @return array{name: string, icon: string, filterQuery: string, sortColumn: string, sortDirection: string, sorts: array<int, array{column: string, direction: string}>, columns: array<int, string>}
      */
     private function viewPayload(Request $request): array
     {
@@ -202,16 +215,25 @@ final readonly class EmployeeController
             'filterQuery' => ['nullable', 'string', 'max:1000'],
             'sortColumn' => ['required', 'string', 'max:255'],
             'sortDirection' => ['required', 'string', 'in:asc,desc'],
+            'sorts' => ['nullable', 'array', 'max:3'],
+            'sorts.*.column' => ['required_with:sorts', 'string', 'max:255'],
+            'sorts.*.direction' => ['required_with:sorts', 'string', 'in:asc,desc'],
             'columns' => ['required', 'array', 'min:1'],
             'columns.*' => ['required', 'string', 'max:255'],
         ]);
+        $sorts = $this->sortList($validated['sorts'] ?? null, [[
+            'column' => $this->stringValue($validated['sortColumn'] ?? null, 'employee'),
+            'direction' => $this->stringValue($validated['sortDirection'] ?? null, 'asc'),
+        ]]);
+        $primarySort = $sorts[0];
 
         return [
             'name' => $this->stringValue($validated['name'] ?? null, 'Employees'),
             'icon' => $this->stringValue($validated['icon'] ?? null, 'eye'),
             'filterQuery' => $this->stringValue($validated['filterQuery'] ?? null, ''),
-            'sortColumn' => $this->stringValue($validated['sortColumn'] ?? null, 'employee'),
-            'sortDirection' => $this->stringValue($validated['sortDirection'] ?? null, 'asc'),
+            'sortColumn' => $primarySort['column'],
+            'sortDirection' => $primarySort['direction'],
+            'sorts' => $sorts,
             'columns' => $this->stringList($validated['columns'] ?? []),
         ];
     }
@@ -238,13 +260,6 @@ final readonly class EmployeeController
         ];
     }
 
-    private function ownerEmail(Request $request): string
-    {
-        $user = $this->userFromSession($request);
-
-        return $user['email'];
-    }
-
     /**
      * @return array<int, string>
      */
@@ -265,6 +280,26 @@ final readonly class EmployeeController
         return array_values(array_unique($strings));
     }
 
+    /**
+     * @return array<int, int>
+     */
+    private function integerList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $integers = [];
+
+        foreach ($value as $item) {
+            if (is_numeric($item)) {
+                $integers[] = (int) $item;
+            }
+        }
+
+        return array_values(array_unique($integers));
+    }
+
     private function stringValue(mixed $value, string $default): string
     {
         if (is_string($value)) {
@@ -276,5 +311,38 @@ final readonly class EmployeeController
         }
 
         return $default;
+    }
+
+    /**
+     * @param  array<int, array{column: string, direction: string}>  $default
+     * @return array<int, array{column: string, direction: string}>
+     */
+    private function sortList(mixed $value, array $default): array
+    {
+        if (! is_array($value)) {
+            return $default;
+        }
+
+        $sorts = [];
+
+        foreach ($value as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $column = $this->stringValue($item['column'] ?? null, '');
+            $direction = $this->stringValue($item['direction'] ?? null, 'asc');
+
+            if ($column === '') {
+                continue;
+            }
+
+            $sorts[] = [
+                'column' => $column,
+                'direction' => $direction === 'desc' ? 'desc' : 'asc',
+            ];
+        }
+
+        return $sorts !== [] ? $sorts : $default;
     }
 }

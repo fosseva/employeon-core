@@ -20,4 +20,12 @@
   .action-button {
     @apply inline-flex h-8 items-center gap-1.5 rounded-md border border-[#17201b]/10 bg-[#fffffb] px-2.5 text-xs font-black text-[#34423a] hover:bg-[#e8efe8] disabled:cursor-not-allowed disabled:opacity-50;
   }
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
 }

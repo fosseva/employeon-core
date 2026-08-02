@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, Link2, Plus, RotateCcw, Save, Send, ShieldOff, Unlink } from 'lucide-react';
+import { type ReactNode } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 
 type User = { name: string; email: string; role: string };
@@ -43,6 +44,15 @@ const blankEmployee = {
 
 function displayName(employee: Employee) {
   return employee.display_name || `${employee.first_name} ${employee.last_name}`.trim() || 'Unnamed employee';
+}
+
+function FieldLabel({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <label className="grid gap-1.5">
+      <span className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">{label}</span>
+      {children}
+    </label>
+  );
 }
 
 function AccessActions({ canManageUsers, employee }: { canManageUsers: boolean; employee: Employee }) {
@@ -89,13 +99,15 @@ function AccessActions({ canManageUsers, employee }: { canManageUsers: boolean; 
           linkForm.post(`/employees/${employee.id}/link-user`, { preserveScroll: true });
         }}
       >
-        <input
-          className="field"
-          type="email"
-          placeholder="Existing user email"
-          value={linkForm.data.email}
-          onChange={(event) => linkForm.setData('email', event.target.value)}
-        />
+        <FieldLabel label="Existing user email">
+          <input
+            className="field"
+            type="email"
+            placeholder="asha.rao@example.com"
+            value={linkForm.data.email}
+            onChange={(event) => linkForm.setData('email', event.target.value)}
+          />
+        </FieldLabel>
         <button className="action-button justify-center" type="submit" disabled={!canManageUsers || linkForm.processing}>
           <Link2 className="size-4" />
           Link User
@@ -119,7 +131,7 @@ export default function EmployeeFormPage({ user, template, employee, access }: P
     <>
       <Head title={template.title} />
       <AppLayout title={template.title} subtitle={template.subtitle} user={user}>
-        <div className="mx-auto grid max-w-5xl gap-4">
+        <div className="mx-auto grid min-w-0 max-w-5xl gap-4">
           <div className="flex items-center justify-between gap-3">
             <Link className="action-button no-underline" href="/employees">
               <ArrowLeft className="size-4" />
@@ -132,7 +144,7 @@ export default function EmployeeFormPage({ user, template, employee, access }: P
             )}
           </div>
 
-          <section className="rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-4 shadow-[0_18px_45px_rgba(23,32,27,0.06)]">
+          <section className="min-w-0 rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-4 shadow-[0_18px_45px_rgba(23,32,27,0.06)]">
             <form
               className="grid gap-4"
               onSubmit={(event) => {
@@ -148,19 +160,37 @@ export default function EmployeeFormPage({ user, template, employee, access }: P
               }}
             >
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <input className="field" placeholder="Employee number" value={form.data.employee_number} onChange={(event) => form.setData('employee_number', event.target.value)} />
-                <input className="field" placeholder="First name" value={form.data.first_name} onChange={(event) => form.setData('first_name', event.target.value)} />
-                <input className="field" placeholder="Last name" value={form.data.last_name} onChange={(event) => form.setData('last_name', event.target.value)} />
-                <input className="field" placeholder="Middle name" value={form.data.middle_name} onChange={(event) => form.setData('middle_name', event.target.value)} />
-                <input className="field" placeholder="Display name" value={form.data.display_name} onChange={(event) => form.setData('display_name', event.target.value)} />
-                <input className="field" type="date" value={form.data.joined_on} onChange={(event) => form.setData('joined_on', event.target.value)} />
-                <input className="field" type="email" placeholder="Work email" value={form.data.work_email} onChange={(event) => form.setData('work_email', event.target.value)} />
-                <input className="field" type="email" placeholder="Personal email" value={form.data.personal_email} onChange={(event) => form.setData('personal_email', event.target.value)} />
-                <select className="field" value={form.data.employment_status} onChange={(event) => form.setData('employment_status', event.target.value)}>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="on_leave">On leave</option>
-                </select>
+                <FieldLabel label="Employee number">
+                  <input className="field" placeholder="EMP-1042" value={form.data.employee_number} onChange={(event) => form.setData('employee_number', event.target.value)} />
+                </FieldLabel>
+                <FieldLabel label="First name">
+                  <input className="field" placeholder="Asha" value={form.data.first_name} onChange={(event) => form.setData('first_name', event.target.value)} />
+                </FieldLabel>
+                <FieldLabel label="Last name">
+                  <input className="field" placeholder="Rao" value={form.data.last_name} onChange={(event) => form.setData('last_name', event.target.value)} />
+                </FieldLabel>
+                <FieldLabel label="Middle name">
+                  <input className="field" placeholder="Kumar" value={form.data.middle_name} onChange={(event) => form.setData('middle_name', event.target.value)} />
+                </FieldLabel>
+                <FieldLabel label="Display name">
+                  <input className="field" placeholder="Asha Rao" value={form.data.display_name} onChange={(event) => form.setData('display_name', event.target.value)} />
+                </FieldLabel>
+                <FieldLabel label="Joined on">
+                  <input className="field" type="date" value={form.data.joined_on} onChange={(event) => form.setData('joined_on', event.target.value)} />
+                </FieldLabel>
+                <FieldLabel label="Work email">
+                  <input className="field" type="email" placeholder="asha.rao@company.com" value={form.data.work_email} onChange={(event) => form.setData('work_email', event.target.value)} />
+                </FieldLabel>
+                <FieldLabel label="Personal email">
+                  <input className="field" type="email" placeholder="asha.personal@example.com" value={form.data.personal_email} onChange={(event) => form.setData('personal_email', event.target.value)} />
+                </FieldLabel>
+                <FieldLabel label="Employment status">
+                  <select className="field" value={form.data.employment_status} onChange={(event) => form.setData('employment_status', event.target.value)}>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="on_leave">On leave</option>
+                  </select>
+                </FieldLabel>
               </div>
 
               <div className="flex justify-end">

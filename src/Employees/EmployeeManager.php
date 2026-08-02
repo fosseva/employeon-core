@@ -6,8 +6,9 @@ namespace Employeon\Employees;
 
 use Employeon\Contracts\DatabaseConnectionResolver;
 use Employeon\Employees\Events\EmployeeInvited;
+use Employeon\Employees\Models\Employee;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Query\Builder;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -57,10 +58,7 @@ final readonly class EmployeeManager
      */
     public function create(array $data): void
     {
-        $this->table()->insert($this->payload($data) + [
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $this->employeeModel()->newQuery()->create($this->payload($data));
     }
 
     /**
@@ -68,8 +66,8 @@ final readonly class EmployeeManager
      */
     public function update(int $employeeId, array $data): void
     {
-        $this->table()
-            ->where('id', $employeeId)
+        $this->employeeQuery()
+            ->whereKey($employeeId)
             ->update($this->payload($data) + [
                 'updated_at' => now(),
             ]);
@@ -82,7 +80,26 @@ final readonly class EmployeeManager
             ->where('employee_id', $employeeId)
             ->delete();
 
-        $this->table()->where('id', $employeeId)->delete();
+        $this->employeeQuery()->whereKey($employeeId)->delete();
+    }
+
+    /**
+     * @param  array<int, int>  $employeeIds
+     */
+    public function deleteMany(array $employeeIds): void
+    {
+        $employeeIds = array_values(array_unique(array_filter($employeeIds, fn (int $employeeId): bool => $employeeId > 0)));
+
+        if ($employeeIds === []) {
+            return;
+        }
+
+        DB::connection($this->connectionName())
+            ->table($this->attendanceTable())
+            ->whereIn('employee_id', $employeeIds)
+            ->delete();
+
+        $this->employeeQuery()->whereKey($employeeIds)->delete();
     }
 
     /**
@@ -102,8 +119,8 @@ final readonly class EmployeeManager
         $userId = $this->findOrCreateUser($employee);
         $inviteToken = Str::random(48);
 
-        $this->table()
-            ->where('id', $employeeId)
+        $this->employeeQuery()
+            ->whereKey($employeeId)
             ->update([
                 'user_id' => $userId,
                 'access_status' => 'invited',
@@ -140,8 +157,8 @@ final readonly class EmployeeManager
             return null;
         }
 
-        $this->table()
-            ->where('id', $employeeId)
+        $this->employeeQuery()
+            ->whereKey($employeeId)
             ->update([
                 'user_id' => $userId,
                 'access_status' => 'active',
@@ -156,8 +173,8 @@ final readonly class EmployeeManager
 
     public function disableAccess(int $employeeId): void
     {
-        $this->table()
-            ->where('id', $employeeId)
+        $this->employeeQuery()
+            ->whereKey($employeeId)
             ->update([
                 'access_status' => 'disabled',
                 'access_disabled_at' => now(),
@@ -167,8 +184,8 @@ final readonly class EmployeeManager
 
     public function unlinkAccess(int $employeeId): void
     {
-        $this->table()
-            ->where('id', $employeeId)
+        $this->employeeQuery()
+            ->whereKey($employeeId)
             ->update([
                 'user_id' => null,
                 'access_status' => 'not_invited',
@@ -197,7 +214,7 @@ final readonly class EmployeeManager
             return null;
         }
 
-        $employee = $this->table()
+        $employee = $this->employeeQuery()
             ->where('invite_token', $token)
             ->whereNotNull('user_id')
             ->first();
@@ -212,8 +229,8 @@ final readonly class EmployeeManager
             return null;
         }
 
-        $this->table()
-            ->where('id', $this->integerValue($employee->id ?? null))
+        $this->employeeQuery()
+            ->whereKey($this->integerValue($employee->id ?? null))
             ->update([
                 'access_status' => 'active',
                 'invite_token' => null,
@@ -240,10 +257,9 @@ final readonly class EmployeeManager
         }
 
         $employees = [];
-        $rows = $this->table()
+        $rows = $this->employeeQuery()
             ->orderBy('first_name')
             ->orderBy('last_name')
-            ->limit(100)
             ->get();
 
         foreach ($rows as $employee) {
@@ -293,21 +309,23 @@ final readonly class EmployeeManager
         }
 
         return [
-            'total' => $this->table()->count(),
-            'active' => $this->table()->where('employment_status', 'active')->count(),
-            'inactive' => $this->table()->where('employment_status', 'inactive')->count(),
-            'invited' => $this->table()->where('access_status', 'invited')->count(),
-            'linked' => $this->table()->whereNotNull('user_id')->count(),
+            'total' => $this->employeeQuery()->count(),
+            'active' => $this->employeeQuery()->where('employment_status', 'active')->count(),
+            'inactive' => $this->employeeQuery()->where('employment_status', 'inactive')->count(),
+            'invited' => $this->employeeQuery()->where('access_status', 'invited')->count(),
+            'linked' => $this->employeeQuery()->whereNotNull('user_id')->count(),
         ];
     }
 
-    private function employee(int $employeeId): ?object
+    private function employee(int $employeeId): ?Employee
     {
         if (! $this->tableExists($this->tableName())) {
             return null;
         }
 
-        return $this->table()->where('id', $employeeId)->first();
+        $employee = $this->employeeQuery()->whereKey($employeeId)->first();
+
+        return $employee instanceof Employee ? $employee : null;
     }
 
     private function findOrCreateUser(object $employee): ?int
@@ -531,9 +549,26 @@ final readonly class EmployeeManager
         ];
     }
 
-    private function table(): Builder
+    /**
+     * @return Builder<Employee>
+     */
+    private function employeeQuery(): Builder
     {
-        return DB::connection($this->connectionName())->table($this->tableName());
+        return $this->employeeModel()->newQuery();
+    }
+
+    private function employeeModel(): Employee
+    {
+        $model = new Employee;
+        $model->setTable($this->tableName());
+
+        $connection = $this->connectionName();
+
+        if ($connection !== null) {
+            $model->setConnection($connection);
+        }
+
+        return $model;
     }
 
     private function tableExists(string $table): bool
