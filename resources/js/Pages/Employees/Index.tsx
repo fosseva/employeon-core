@@ -10,6 +10,8 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   ClipboardCheck,
   Download,
@@ -17,6 +19,7 @@ import {
   FileText,
   Flag,
   GraduationCap,
+  GripVertical,
   HeartHandshake,
   IdCard,
   Mail,
@@ -111,6 +114,8 @@ type FilterMenuPlacement = {
   top: number;
   width: number;
 };
+
+type ViewBuilderTab = 'basics' | 'sort' | 'columns';
 
 type ViewIconKey =
   | 'eye'
@@ -642,6 +647,7 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
   const [showViewBuilder, setShowViewBuilder] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showAllIcons, setShowAllIcons] = useState(false);
+  const [viewBuilderTab, setViewBuilderTab] = useState<ViewBuilderTab>('basics');
   const [openFilterMenu, setOpenFilterMenu] = useState<FilterMenuPlacement | null>(null);
   const [canScrollViewsLeft, setCanScrollViewsLeft] = useState(false);
   const [canScrollViewsRight, setCanScrollViewsRight] = useState(false);
@@ -766,6 +772,41 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
     updateActiveView({ columns: columns.length > 0 ? columns : ['employee'] });
   }
 
+  function moveColumn(column: ColumnKey, direction: 'up' | 'down') {
+    const index = activeView.columns.indexOf(column);
+
+    if (index === -1) {
+      return;
+    }
+
+    const nextIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (nextIndex < 0 || nextIndex >= activeView.columns.length) {
+      return;
+    }
+
+    const columns = [...activeView.columns];
+    [columns[index], columns[nextIndex]] = [columns[nextIndex], columns[index]];
+
+    updateActiveView({ columns });
+  }
+
+  function reorderColumn(column: ColumnKey, targetColumn: ColumnKey) {
+    if (column === targetColumn) {
+      return;
+    }
+
+    const columns = activeView.columns.filter((value) => value !== column);
+    const targetIndex = columns.indexOf(targetColumn);
+
+    if (targetIndex === -1) {
+      return;
+    }
+
+    columns.splice(targetIndex, 0, column);
+    updateActiveView({ columns });
+  }
+
   function createView() {
     const id = createUuid();
     const view: EmployeeView = {
@@ -780,6 +821,7 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
     setViews((currentViews) => [...currentViews, view]);
     setActiveViewId(id);
     setEditingViewId(id);
+    setViewBuilderTab('basics');
     setShowViewBuilder(true);
     router.post(
       `/employees/views/${id}`,
@@ -1047,7 +1089,9 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
     ]),
   ), [activeView.id, employees, filterQuery, views]);
 
-  const visibleColumns = availableColumns.filter((column) => activeView.columns.includes(column.key));
+  const visibleColumns = activeView.columns
+    .map((column) => availableColumns.find((field) => field.key === column))
+    .filter((column): column is EmployeeField => column !== undefined);
   const mobileColumns = visibleColumns.filter((column) => column.key !== 'employee');
   const ActiveViewIcon = viewIcons[activeView.icon] ?? Eye;
   const filters = parseFilterQuery(filterQuery);
@@ -1344,132 +1388,229 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
                   </button>
                 </div>
 
-                <div className="grid gap-4 overflow-y-auto pr-1 md:grid-cols-[310px_minmax(0,1fr)]">
-                  <div className="grid content-start gap-3">
-                    <label className="grid gap-1">
-                      <span className="flex h-5 items-center px-1 text-[0.62rem] font-black uppercase text-[#8a6a4a]">View name</span>
-                      <input
-                        aria-label="View name"
-                        className="field h-9"
-                        placeholder="e.g. Active engineers"
-                        value={activeView.name}
-                        onBlur={finishEditingViewName}
-                        onChange={(event) => updateViewName(event.target.value)}
-                        onKeyDown={handleViewNameKeyDown}
-                      />
-                    </label>
+                <div className="grid min-h-0 gap-3">
+                  <div className="flex gap-1 rounded-md bg-[#f7faf4] p-1">
+                    {[
+                      { key: 'basics', label: 'Basics' },
+                      { key: 'sort', label: 'Sort' },
+                      { key: 'columns', label: 'Columns' },
+                    ].map((tab) => (
+                      <button
+                        className={viewBuilderTab === tab.key ? 'h-8 rounded bg-[#27615a] px-3 text-xs font-black text-white' : 'h-8 rounded px-3 text-xs font-black text-[#59635d] hover:bg-[#fffffb]'}
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setViewBuilderTab(tab.key as ViewBuilderTab)}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
 
-                    <div className="grid gap-2">
-                      <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Icon</p>
-                      <div className="flex flex-wrap gap-2">
-                        {visibleViewIcons.map((icon) => {
-                          const Icon = viewIcons[icon.key] ?? Eye;
+                  <div className="min-h-0 overflow-y-auto pr-1">
+                    {viewBuilderTab === 'basics' && (
+                      <div className="grid gap-4 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+                        <div className="grid content-start gap-3 rounded-md border border-[#17201b]/10 bg-[#f7faf4] p-3">
+                          <label className="grid gap-1">
+                            <span className="flex h-5 items-center px-1 text-[0.62rem] font-black uppercase text-[#8a6a4a]">View name</span>
+                            <input
+                              aria-label="View name"
+                              className="field h-9 bg-[#fffffb]"
+                              placeholder="e.g. Active engineers"
+                              value={activeView.name}
+                              onBlur={finishEditingViewName}
+                              onChange={(event) => updateViewName(event.target.value)}
+                              onKeyDown={handleViewNameKeyDown}
+                            />
+                          </label>
+                          <div className="grid gap-1">
+                            <p className="text-[0.62rem] font-black uppercase text-[#8a6a4a]">Preview</p>
+                            <div className="inline-flex h-9 w-fit max-w-full items-center gap-2 rounded-md bg-[#27615a] px-3 text-xs font-black text-white">
+                              <ActiveViewIcon className="size-4 shrink-0" />
+                              <span className="truncate">{activeView.name.trim() || 'Untitled view'}</span>
+                            </div>
+                          </div>
+                        </div>
 
-                          return (
-                            <button
-                              aria-label={`${icon.label} icon`}
-                              className={activeView.icon === icon.key ? 'grid size-8 place-items-center rounded-md bg-[#27615a] text-white' : 'grid size-8 place-items-center rounded-md border border-[#17201b]/10 bg-[#f7faf4] text-[#34423a] hover:bg-[#e8efe8]'}
-                              key={icon.key}
-                              type="button"
-                              onClick={() => updateActiveView({ icon: icon.key })}
-                              title={`${icon.label} icon`}
-                            >
-                              <Icon className="size-4" />
-                            </button>
-                          );
-                        })}
-                        {availableViewIcons.length > defaultVisibleIconCount && (
-                          <button
-                            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#17201b]/10 bg-[#fffffb] px-2 text-xs font-black text-[#34423a] hover:bg-[#e8efe8]"
-                            type="button"
-                            onClick={() => setShowAllIcons((value) => !value)}
-                          >
-                            <MoreHorizontal className="size-4" />
-                            {showAllIcons ? 'Show fewer' : 'More icons'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                        <div className="grid content-start gap-2 rounded-md border border-[#17201b]/10 bg-[#f7faf4] p-3">
+                          <div className="flex h-5 items-center justify-between gap-3">
+                            <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Icon</p>
+                            <p className="text-xs font-semibold text-[#59635d]">{availableViewIcons.length} options</p>
+                          </div>
+                          <div className="grid max-h-48 grid-cols-[repeat(auto-fill,minmax(2rem,1fr))] gap-2 overflow-y-auto pr-1">
+                            {visibleViewIcons.map((icon) => {
+                              const Icon = viewIcons[icon.key] ?? Eye;
 
-                    <div className="grid gap-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Sort</p>
-                        <button className="text-[0.68rem] font-black text-[#27615a] disabled:text-[#8a948d]" type="button" onClick={addSortRule} disabled={activeSorts.length >= 3 || activeSorts.length >= sortableFields.length}>
-                          Add sort
-                        </button>
-                      </div>
-                      {activeSorts.map((sort, index) => (
-                        <div className="grid gap-1 rounded-md border border-[#17201b]/10 bg-[#f7faf4] p-2" key={`${sort.column}-${index}`}>
-                          <span className="text-[0.6rem] font-black uppercase text-[#8a6a4a]">
-                            {index === 0 ? 'Primary' : `Then ${index + 1}`}
-                          </span>
-                          <select className="field h-8 bg-[#fffffb]" value={sort.column} onChange={(event) => updateSortRule(index, { column: event.target.value as ColumnKey })}>
-                            {sortableFields.map((column) => (
-                              <option key={column.key} value={column.key}>{column.label}</option>
-                            ))}
-                          </select>
-                          <div className="flex gap-2">
-                            <select className="field h-8 flex-1 bg-[#fffffb]" value={sort.direction} onChange={(event) => updateSortRule(index, { direction: event.target.value as 'asc' | 'desc' })}>
-                              <option value="asc">Ascending</option>
-                              <option value="desc">Descending</option>
-                            </select>
-                            {activeSorts.length > 1 && (
-                              <button className="grid size-8 shrink-0 place-items-center rounded-md border border-[#17201b]/10 bg-[#fffffb] text-[#59635d] hover:bg-[#e8efe8]" type="button" onClick={() => removeSortRule(index)} title="Remove sort">
-                                <X className="size-3.5" />
+                              return (
+                                <button
+                                  aria-label={`${icon.label} icon`}
+                                  className={activeView.icon === icon.key ? 'grid size-8 place-items-center rounded-md bg-[#27615a] text-white' : 'grid size-8 place-items-center rounded-md border border-[#17201b]/10 bg-[#f7faf4] text-[#34423a] hover:bg-[#e8efe8]'}
+                                  key={icon.key}
+                                  type="button"
+                                  onClick={() => updateActiveView({ icon: icon.key })}
+                                  title={`${icon.label} icon`}
+                                >
+                                  <Icon className="size-4" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div>
+                            {availableViewIcons.length > defaultVisibleIconCount && (
+                              <button
+                                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#17201b]/10 bg-[#fffffb] px-2 text-xs font-black text-[#34423a] hover:bg-[#e8efe8]"
+                                type="button"
+                                onClick={() => setShowAllIcons((value) => !value)}
+                              >
+                                <MoreHorizontal className="size-4" />
+                                {showAllIcons ? 'Show fewer' : 'More icons'}
                               </button>
                             )}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid min-w-0 content-start gap-3">
-                    <div className="grid gap-1">
-                      <div className="flex h-5 items-center justify-between gap-3">
-                        <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Columns</p>
-                        <p className="text-xs font-semibold text-[#59635d]">{visibleColumns.length} selected</p>
                       </div>
+                    )}
 
-                      <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-[#17201b]/10 bg-[#f7faf4] px-2.5">
-                        <Search className="size-4 shrink-0 text-[#59635d]" />
-                        <input
-                          className="min-w-0 flex-1 bg-transparent text-xs font-semibold outline-none"
-                          placeholder="Find columns"
-                          value={columnSearch}
-                          onChange={(event) => setColumnSearch(event.target.value)}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="grid max-h-[44vh] gap-3 overflow-y-auto pr-1">
-                      {columnGroups.map((group) => (
-                        <div className="grid gap-2" key={group}>
-                          <p className="text-[0.65rem] font-black uppercase text-[#7a5a3a]">{group}</p>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {filteredColumnFields.filter((field) => field.group === group).map((field) => (
-                              <label
-                                className={activeView.columns.includes(field.key) ? 'grid cursor-pointer gap-1 rounded-md border border-[#27615a]/25 bg-[#eef7f3] p-2.5 text-left' : 'grid cursor-pointer gap-1 rounded-md border border-[#17201b]/10 bg-[#f7faf4] p-2.5 text-left hover:bg-[#eef3ec]'}
-                                key={field.key}
-                              >
-                                <span className="flex items-start gap-2">
-                                  <input
-                                    className="mt-0.5 size-3.5 shrink-0 accent-[#27615a]"
-                                    type="checkbox"
-                                    checked={activeView.columns.includes(field.key)}
-                                    onChange={() => toggleColumn(field.key)}
-                                  />
-                                  <span className="min-w-0">
-                                    <span className="block truncate text-xs font-black text-[#17201b]">{field.label}</span>
-                                    <span className="block text-[0.68rem] leading-4 text-[#59635d]">{field.description}</span>
-                                  </span>
+                    {viewBuilderTab === 'sort' && (
+                      <div className="grid gap-3">
+                        <div className="flex items-center justify-between gap-2 rounded-md border border-[#17201b]/10 bg-[#f7faf4] p-3">
+                          <div>
+                            <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Sort order</p>
+                            <p className="text-xs font-semibold text-[#59635d]">{sortSummary(activeSorts)}</p>
+                          </div>
+                          <button className="action-button h-8" type="button" onClick={addSortRule} disabled={activeSorts.length >= 3 || activeSorts.length >= sortableFields.length}>
+                            <Plus className="size-4" />
+                            Add sort
+                          </button>
+                        </div>
+                        <div className="grid gap-2">
+                          {activeSorts.map((sort, index) => (
+                            <div className="grid gap-2 rounded-md border border-[#17201b]/10 bg-[#fffffb] p-3 md:grid-cols-[8rem_minmax(0,1fr)_12rem_auto] md:items-end" key={`${sort.column}-${index}`}>
+                              <div className="grid gap-1">
+                                <span className="text-[0.6rem] font-black uppercase text-[#8a6a4a]">Priority</span>
+                                <span className="inline-flex h-9 items-center rounded-md bg-[#f7faf4] px-2 text-xs font-black text-[#17201b]">
+                                  {index === 0 ? 'Primary' : `Then ${index + 1}`}
                                 </span>
+                              </div>
+                              <label className="grid gap-1">
+                                <span className="text-[0.6rem] font-black uppercase text-[#8a6a4a]">Column</span>
+                                <select className="field h-9 bg-[#fffffb]" value={sort.column} onChange={(event) => updateSortRule(index, { column: event.target.value as ColumnKey })}>
+                                  {sortableFields.map((column) => (
+                                    <option key={column.key} value={column.key}>{column.label}</option>
+                                  ))}
+                                </select>
                               </label>
+                              <label className="grid gap-1">
+                                <span className="text-[0.6rem] font-black uppercase text-[#8a6a4a]">Direction</span>
+                                <select className="field h-9 bg-[#fffffb]" value={sort.direction} onChange={(event) => updateSortRule(index, { direction: event.target.value as 'asc' | 'desc' })}>
+                                  <option value="asc">Ascending</option>
+                                  <option value="desc">Descending</option>
+                                </select>
+                              </label>
+                              <button className="grid size-9 shrink-0 place-items-center rounded-md border border-[#17201b]/10 bg-[#fffffb] text-[#59635d] hover:bg-[#e8efe8] disabled:opacity-30" type="button" onClick={() => removeSortRule(index)} disabled={activeSorts.length === 1} title="Remove sort">
+                                <X className="size-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          {activeSorts.length < 3 && activeSorts.length < sortableFields.length && (
+                            <button className="flex h-11 items-center justify-center gap-2 rounded-md border border-dashed border-[#27615a]/30 bg-[#f7faf4] text-xs font-black text-[#27615a] hover:bg-[#eef7f3]" type="button" onClick={addSortRule}>
+                              <Plus className="size-4" />
+                              Add another sort
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {viewBuilderTab === 'columns' && (
+                      <div className="grid gap-4 lg:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.2fr)]">
+                        <div className="grid content-start gap-2">
+                          <div className="flex h-5 items-center justify-between gap-3">
+                            <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Selected order</p>
+                            <p className="text-xs font-semibold text-[#59635d]">{visibleColumns.length} selected</p>
+                          </div>
+                          <div className="grid max-h-[44vh] gap-2 overflow-y-auto pr-1">
+                            {visibleColumns.map((column, index) => (
+                              <div
+                                className="flex items-center gap-2 rounded-md border border-[#27615a]/20 bg-[#eef7f3] p-2"
+                                draggable
+                                key={column.key}
+                                onDragOver={(event) => event.preventDefault()}
+                                onDragStart={(event) => {
+                                  event.dataTransfer.effectAllowed = 'move';
+                                  event.dataTransfer.setData('text/plain', column.key);
+                                }}
+                                onDrop={(event) => {
+                                  event.preventDefault();
+                                  reorderColumn(event.dataTransfer.getData('text/plain') as ColumnKey, column.key);
+                                }}
+                              >
+                                <span className="grid size-6 shrink-0 cursor-grab place-items-center rounded bg-[#27615a]/10 text-[#27615a]" title="Drag to reorder">
+                                  <GripVertical className="size-4" />
+                                </span>
+                                <span className="grid size-6 shrink-0 place-items-center rounded bg-[#27615a]/10 text-[0.62rem] font-black text-[#27615a]">
+                                  {index + 1}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-xs font-black text-[#17201b]">{column.label}</span>
+                                <button className="grid size-7 shrink-0 place-items-center rounded border border-[#17201b]/10 bg-[#fffffb] text-[#59635d] disabled:opacity-30" type="button" onClick={() => moveColumn(column.key, 'up')} disabled={index === 0} title="Move column up">
+                                  <ChevronUp className="size-4" />
+                                </button>
+                                <button className="grid size-7 shrink-0 place-items-center rounded border border-[#17201b]/10 bg-[#fffffb] text-[#59635d] disabled:opacity-30" type="button" onClick={() => moveColumn(column.key, 'down')} disabled={index === visibleColumns.length - 1} title="Move column down">
+                                  <ChevronDown className="size-4" />
+                                </button>
+                              </div>
                             ))}
                           </div>
                         </div>
-                      ))}
-                    </div>
+
+                        <div className="grid min-w-0 content-start gap-3">
+                          <div className="grid gap-1">
+                            <div className="flex h-5 items-center justify-between gap-3">
+                              <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Available columns</p>
+                              <p className="text-xs font-semibold text-[#59635d]">Toggle visibility</p>
+                            </div>
+
+                            <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-[#17201b]/10 bg-[#f7faf4] px-2.5">
+                              <Search className="size-4 shrink-0 text-[#59635d]" />
+                              <input
+                                className="min-w-0 flex-1 bg-transparent text-xs font-semibold outline-none"
+                                placeholder="Find columns"
+                                value={columnSearch}
+                                onChange={(event) => setColumnSearch(event.target.value)}
+                              />
+                            </label>
+                          </div>
+
+                          <div className="grid max-h-[44vh] gap-3 overflow-y-auto pr-1">
+                            {columnGroups.map((group) => (
+                              <div className="grid gap-2" key={group}>
+                                <p className="text-[0.65rem] font-black uppercase text-[#7a5a3a]">{group}</p>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  {filteredColumnFields.filter((field) => field.group === group).map((field) => (
+                                    <label
+                                      className={activeView.columns.includes(field.key) ? 'grid cursor-pointer gap-1 rounded-md border border-[#27615a]/25 bg-[#eef7f3] p-2.5 text-left' : 'grid cursor-pointer gap-1 rounded-md border border-[#17201b]/10 bg-[#f7faf4] p-2.5 text-left hover:bg-[#eef3ec]'}
+                                      key={field.key}
+                                    >
+                                      <span className="flex items-start gap-2">
+                                        <input
+                                          className="mt-0.5 size-3.5 shrink-0 accent-[#27615a]"
+                                          type="checkbox"
+                                          checked={activeView.columns.includes(field.key)}
+                                          onChange={() => toggleColumn(field.key)}
+                                        />
+                                        <span className="min-w-0">
+                                          <span className="block truncate text-xs font-black text-[#17201b]">{field.label}</span>
+                                          <span className="block text-[0.68rem] leading-4 text-[#59635d]">{field.description}</span>
+                                        </span>
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
