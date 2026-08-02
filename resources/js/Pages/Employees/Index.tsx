@@ -73,7 +73,18 @@ type Props = {
   user: User;
   template: Template;
   employees: Employee[];
+  viewEmployees: Employee[];
+  pagination: Pagination;
   views: EmployeeView[];
+};
+
+type Pagination = {
+  page: number;
+  perPage: number;
+  total: number;
+  from: number;
+  to: number;
+  lastPage: number;
 };
 
 type ColumnKey =
@@ -484,16 +495,6 @@ function formatValue(value: string | number | null) {
   return value === null || value === '' ? '-' : value;
 }
 
-function sortValue(employee: Employee, column: ColumnKey) {
-  if (column === 'employee') {
-    return displayName(employee).toLowerCase();
-  }
-
-  const value = column === 'user_id' ? employee.user_id : employee[column];
-
-  return String(value ?? '').toLowerCase();
-}
-
 function columnValue(employee: Employee, column: ColumnKey) {
   if (column === 'employee') {
     return (
@@ -637,7 +638,7 @@ function ConfirmDialog({
   );
 }
 
-export default function EmployeesIndex({ user, template, employees, views: employeeViews }: Props) {
+export default function EmployeesIndex({ user, template, employees, viewEmployees, pagination, views: employeeViews }: Props) {
   const initialViews = employeeViews.length > 0 ? employeeViews : [fallbackView];
   const initialActiveViewId = resolveInitialActiveViewId(initialViews);
   const initialActiveView = initialViews.find((view) => view.id === initialActiveViewId) ?? initialViews[0] ?? fallbackView;
@@ -655,8 +656,8 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
   const [columnSearch, setColumnSearch] = useState('');
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(pagination.page);
+  const [rowsPerPage, setRowsPerPage] = useState(pagination.perPage);
   const activeView = views.find((view) => view.id === activeViewId) ?? views[0] ?? fallbackView;
 
   function syncViewScrollState() {
@@ -730,6 +731,11 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
   useEffect(() => {
     setCurrentPage(1);
   }, [activeView.id, filterQuery, rowsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(pagination.page);
+    setRowsPerPage(pagination.perPage);
+  }, [pagination.page, pagination.perPage]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1064,30 +1070,15 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
     });
   }
 
-  const filteredEmployees = useMemo(() => {
-    return employees.filter((employee) => employeeMatchesFilterQuery(employee, filterQuery)).sort((left, right) => {
-      for (const sort of viewSorts(activeView)) {
-        const direction = sort.direction === 'asc' ? 1 : -1;
-        const comparison = sortValue(left, sort.column).localeCompare(sortValue(right, sort.column));
-
-        if (comparison !== 0) {
-          return comparison * direction;
-        }
-      }
-
-      return 0;
-    });
-  }, [activeView, employees, filterQuery]);
-
   const viewCounts = useMemo(() => Object.fromEntries(
     views.map((view) => [
       view.id,
-      employees.filter((employee) => employeeMatchesFilterQuery(
+      viewEmployees.filter((employee) => employeeMatchesFilterQuery(
         employee,
         view.id === activeView.id ? filterQuery : view.filterQuery,
       )).length,
     ]),
-  ), [activeView.id, employees, filterQuery, views]);
+  ), [activeView.id, filterQuery, viewEmployees, views]);
 
   const visibleColumns = activeView.columns
     .map((column) => availableColumns.find((field) => field.key === column))
@@ -1115,14 +1106,42 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
     [field.label, field.group, field.description, field.key].join(' ').toLowerCase().includes(columnSearch.trim().toLowerCase()),
   );
   const columnGroups = Array.from(new Set(filteredColumnFields.map((field) => field.group)));
-  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / rowsPerPage));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pageStart = (safeCurrentPage - 1) * rowsPerPage;
-  const pageEnd = Math.min(pageStart + rowsPerPage, filteredEmployees.length);
-  const paginatedEmployees = filteredEmployees.slice(pageStart, pageEnd);
+  const totalPages = pagination.lastPage;
+  const safeCurrentPage = pagination.page;
+  const pageStart = pagination.from;
+  const pageEnd = pagination.to;
+  const paginatedEmployees = employees;
   const pageEmployeeIds = paginatedEmployees.map((employee) => employee.id);
   const allPageEmployeesSelected = pageEmployeeIds.length > 0 && pageEmployeeIds.every((id) => selectedEmployeeIds.includes(id));
   const visibleViewIcons = showAllIcons ? availableViewIcons : availableViewIcons.slice(0, defaultVisibleIconCount);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const sorts = JSON.stringify(activeSorts);
+    const url = new URL(window.location.href);
+    const matchesServerState = url.searchParams.get('page') === String(currentPage)
+      && url.searchParams.get('perPage') === String(rowsPerPage)
+      && (url.searchParams.get('filterQuery') ?? '') === normalizeFilterQuery(filterQuery)
+      && (url.searchParams.get('sorts') ?? '') === sorts;
+
+    if (matchesServerState) {
+      return;
+    }
+
+    router.get('/employees', {
+      page: currentPage,
+      perPage: rowsPerPage,
+      filterQuery: normalizeFilterQuery(filterQuery),
+      sorts,
+    }, {
+      preserveScroll: true,
+      preserveState: true,
+      replace: true,
+    });
+  }, [activeSorts, currentPage, filterQuery, rowsPerPage]);
 
   return (
     <>
@@ -1647,7 +1666,7 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
                     {activeView.name}
                   </p>
                   <p className="text-xs text-[#59635d]">
-                    {filteredEmployees.length === 0 ? '0' : `${pageStart + 1}-${pageEnd}`} of {filteredEmployees.length} people shown
+                    {pagination.total === 0 ? '0' : `${pageStart}-${pageEnd}`} of {pagination.total} people shown
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 xl:justify-end">
@@ -1809,11 +1828,11 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
               </table>
             </div>
 
-            {filteredEmployees.length === 0 && (
+            {pagination.total === 0 && (
               <p className="px-4 py-10 text-center text-sm font-semibold text-[#59635d]">No employees match this view.</p>
             )}
 
-            {filteredEmployees.length > 0 && (
+            {pagination.total > 0 && (
               <div className="flex flex-col gap-2 border-t border-[#17201b]/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-xs font-semibold text-[#59635d]">
                   <span>Rows</span>

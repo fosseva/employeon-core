@@ -25,7 +25,15 @@ final readonly class EmployeeController
                 ],
                 'views' => $employeeViewManager->views($ownerResolver->resolve($request)),
             ],
-            $employeeManager->pageData(),
+            $employeeManager->pageData(
+                filterQuery: $request->string('filterQuery')->toString(),
+                sorts: $this->sortList(json_decode($request->string('sorts')->toString(), true), [[
+                    'column' => 'employee',
+                    'direction' => 'asc',
+                ]]),
+                page: max(1, $this->integerValue($request->query('page'), 1)),
+                perPage: $this->perPage($request),
+            ),
         ));
     }
 
@@ -308,6 +316,22 @@ final readonly class EmployeeController
 
         if (is_numeric($value)) {
             return (string) $value;
+        }
+
+        return $default;
+    }
+
+    private function perPage(Request $request): int
+    {
+        $perPage = $this->integerValue($request->query('perPage'), 10);
+
+        return in_array($perPage, [10, 25, 50], true) ? $perPage : 10;
+    }
+
+    private function integerValue(mixed $value, int $default): int
+    {
+        if (is_numeric($value)) {
+            return (int) $value;
         }
 
         return $default;

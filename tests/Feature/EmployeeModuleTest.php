@@ -122,8 +122,46 @@ it('creates and renders employees', function (): void {
             ->where('employees.0.employee_number', 'EMP-001')
             ->where('employees.0.display_name', 'Asha Rao')
             ->where('employees.0.work_email', 'asha@example.com')
+            ->where('pagination.total', 1)
+            ->where('pagination.perPage', 10)
+            ->where('viewEmployees.0.employee_number', 'EMP-001')
             ->where('stats.total', 1)
             ->where('stats.active', 1)
+        );
+});
+
+it('paginates employees on the server while keeping full view count rows', function (): void {
+    $this->withoutVite();
+
+    for ($index = 1; $index <= 12; $index++) {
+        DB::table('employees')->insert([
+            'employee_number' => sprintf('EMP-%03d', $index),
+            'first_name' => sprintf('Employee %02d', $index),
+            'last_name' => 'Server',
+            'display_name' => sprintf('Employee %02d Server', $index),
+            'work_email' => sprintf('employee%02d@example.com', $index),
+            'employment_status' => 'active',
+            'access_status' => $index <= 6 ? 'active' : 'not_invited',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    $this->get('/employees?perPage=10&page=2&filterQuery=employment:active&sorts='.urlencode(json_encode([
+        ['column' => 'employee_number', 'direction' => 'asc'],
+    ], JSON_THROW_ON_ERROR)))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Employees/Index')
+            ->has('employees', 2)
+            ->where('employees.0.employee_number', 'EMP-011')
+            ->where('pagination.total', 12)
+            ->where('pagination.page', 2)
+            ->where('pagination.perPage', 10)
+            ->where('pagination.from', 11)
+            ->where('pagination.to', 12)
+            ->where('pagination.lastPage', 2)
+            ->has('viewEmployees', 12)
         );
 });
 

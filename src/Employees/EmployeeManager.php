@@ -22,16 +22,37 @@ final readonly class EmployeeManager
     ) {}
 
     /**
+     * @param  array<int, array{column: string, direction: string}>  $sorts
      * @return array{
      *     employees: array<int, array{id: int, user_id: int|null, employee_number: string, first_name: string, middle_name: string, last_name: string, display_name: string, work_email: string, personal_email: string, employment_status: string, joined_on: string, access_status: string, invited_at: string, invite_accepted_at: string, access_disabled_at: string}>,
+     *     viewEmployees: array<int, array{id: int, user_id: int|null, employee_number: string, first_name: string, middle_name: string, last_name: string, display_name: string, work_email: string, personal_email: string, employment_status: string, joined_on: string, access_status: string, invited_at: string, invite_accepted_at: string, access_disabled_at: string}>,
+     *     pagination: array{page: int, perPage: int, total: int, from: int, to: int, lastPage: int},
      *     stats: array{total: int, active: int, inactive: int, invited: int, linked: int},
      *     access: array{can_manage_users: bool}
      * }
      */
-    public function pageData(): array
+    public function pageData(string $filterQuery = '', array $sorts = [['column' => 'employee', 'direction' => 'asc']], int $page = 1, int $perPage = 10): array
     {
+        $employees = $this->employees();
+        $filteredEmployees = $this->filteredEmployees($employees, $filterQuery);
+        $sortedEmployees = $this->sortedEmployees($filteredEmployees, $sorts);
+        $total = count($sortedEmployees);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $page), $lastPage);
+        $offset = ($page - 1) * $perPage;
+        $pageEmployees = array_slice($sortedEmployees, $offset, $perPage);
+
         return [
-            'employees' => $this->employees(),
+            'employees' => $pageEmployees,
+            'viewEmployees' => $employees,
+            'pagination' => [
+                'page' => $page,
+                'perPage' => $perPage,
+                'total' => $total,
+                'from' => $total === 0 ? 0 : $offset + 1,
+                'to' => min($offset + count($pageEmployees), $total),
+                'lastPage' => $lastPage,
+            ],
             'stats' => $this->stats(),
             'access' => [
                 'can_manage_users' => $this->canManageUsers(),
@@ -267,6 +288,151 @@ final readonly class EmployeeManager
         }
 
         return $employees;
+    }
+
+    /**
+     * @param  array<int, array{id: int, user_id: int|null, employee_number: string, first_name: string, middle_name: string, last_name: string, display_name: string, work_email: string, personal_email: string, employment_status: string, joined_on: string, access_status: string, invited_at: string, invite_accepted_at: string, access_disabled_at: string}>  $employees
+     * @return array<int, array{id: int, user_id: int|null, employee_number: string, first_name: string, middle_name: string, last_name: string, display_name: string, work_email: string, personal_email: string, employment_status: string, joined_on: string, access_status: string, invited_at: string, invite_accepted_at: string, access_disabled_at: string}>
+     */
+    private function filteredEmployees(array $employees, string $filterQuery): array
+    {
+        $filters = $this->parseFilterQuery($filterQuery);
+
+        return array_values(array_filter($employees, fn (array $employee): bool => $this->employeeMatchesFilters($employee, $filters)));
+    }
+
+    /**
+     * @param  array<int, array{id: int, user_id: int|null, employee_number: string, first_name: string, middle_name: string, last_name: string, display_name: string, work_email: string, personal_email: string, employment_status: string, joined_on: string, access_status: string, invited_at: string, invite_accepted_at: string, access_disabled_at: string}>  $employees
+     * @param  array<int, array{column: string, direction: string}>  $sorts
+     * @return array<int, array{id: int, user_id: int|null, employee_number: string, first_name: string, middle_name: string, last_name: string, display_name: string, work_email: string, personal_email: string, employment_status: string, joined_on: string, access_status: string, invited_at: string, invite_accepted_at: string, access_disabled_at: string}>
+     */
+    private function sortedEmployees(array $employees, array $sorts): array
+    {
+        usort($employees, function (array $left, array $right) use ($sorts): int {
+            foreach ($sorts as $sort) {
+                $direction = $sort['direction'] === 'desc' ? -1 : 1;
+                $comparison = strnatcasecmp(
+                    $this->employeeSortValue($left, $sort['column']),
+                    $this->employeeSortValue($right, $sort['column']),
+                );
+
+                if ($comparison !== 0) {
+                    return $comparison * $direction;
+                }
+            }
+
+            return 0;
+        });
+
+        return $employees;
+    }
+
+    /**
+     * @return array{text: string, rules: array<string, array<int, string>>}
+     */
+    private function parseFilterQuery(string $query): array
+    {
+        $filters = [
+            'text' => '',
+            'rules' => [],
+        ];
+        $textParts = [];
+
+        foreach (preg_split('/\s+/', trim($query)) ?: [] as $token) {
+            if ($token === '') {
+                continue;
+            }
+
+            if (str_starts_with($token, 'employment:')) {
+                $filters['rules']['employment'] = array_values(array_unique(array_merge(
+                    $filters['rules']['employment'] ?? [],
+                    $this->filterValues(substr($token, strlen('employment:'))),
+                )));
+
+                continue;
+            }
+
+            if (str_starts_with($token, 'access:')) {
+                $filters['rules']['access'] = array_values(array_unique(array_merge(
+                    $filters['rules']['access'] ?? [],
+                    $this->filterValues(substr($token, strlen('access:'))),
+                )));
+
+                continue;
+            }
+
+            $textParts[] = $token;
+        }
+
+        $filters['text'] = implode(' ', $textParts);
+
+        return $filters;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function filterValues(string $value): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', $value)), fn (string $item): bool => $item !== '' && $item !== 'all'));
+    }
+
+    /**
+     * @param  array{id: int, user_id: int|null, employee_number: string, first_name: string, middle_name: string, last_name: string, display_name: string, work_email: string, personal_email: string, employment_status: string, joined_on: string, access_status: string, invited_at: string, invite_accepted_at: string, access_disabled_at: string}  $employee
+     * @param  array{text: string, rules: array<string, array<int, string>>}  $filters
+     */
+    private function employeeMatchesFilters(array $employee, array $filters): bool
+    {
+        $term = strtolower(trim($filters['text']));
+
+        if ($term !== '') {
+            $searchable = strtolower(implode(' ', [
+                $this->employeeDisplayNameFromRow($employee),
+                $employee['employee_number'],
+                $employee['work_email'],
+                $employee['personal_email'],
+                $employee['employment_status'],
+                $employee['access_status'],
+            ]));
+
+            if (! str_contains($searchable, $term)) {
+                return false;
+            }
+        }
+
+        $employment = $filters['rules']['employment'] ?? [];
+
+        if ($employment !== [] && ! in_array($employee['employment_status'], $employment, true)) {
+            return false;
+        }
+
+        $access = $filters['rules']['access'] ?? [];
+
+        return $access === [] || in_array($employee['access_status'] !== '' ? $employee['access_status'] : 'not_invited', $access, true);
+    }
+
+    /**
+     * @param  array{id: int, user_id: int|null, employee_number: string, first_name: string, middle_name: string, last_name: string, display_name: string, work_email: string, personal_email: string, employment_status: string, joined_on: string, access_status: string, invited_at: string, invite_accepted_at: string, access_disabled_at: string}  $employee
+     */
+    private function employeeSortValue(array $employee, string $column): string
+    {
+        if ($column === 'employee') {
+            return strtolower($this->employeeDisplayNameFromRow($employee));
+        }
+
+        $value = $column === 'user_id' ? $employee['user_id'] : ($employee[$column] ?? '');
+
+        return strtolower((string) $value);
+    }
+
+    /**
+     * @param  array{display_name: string, first_name: string, last_name: string}  $employee
+     */
+    private function employeeDisplayNameFromRow(array $employee): string
+    {
+        $displayName = trim($employee['display_name']);
+
+        return $displayName !== '' ? $displayName : trim($employee['first_name'].' '.$employee['last_name']);
     }
 
     /**
