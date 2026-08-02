@@ -4,30 +4,43 @@ import {
   ArrowDownAZ,
   ArrowUpAZ,
   BadgeCheck,
+  Bell,
   BriefcaseBusiness,
+  Building2,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Columns3,
+  ClipboardCheck,
   Download,
   Eye,
   FileText,
+  Flag,
+  GraduationCap,
   HeartHandshake,
+  IdCard,
   Mail,
   MailCheck,
+  MapPin,
   MoreHorizontal,
   Pencil,
+  Plane,
   Plus,
   Search,
   ShieldCheck,
   SlidersHorizontal,
   Star,
   Trash2,
+  Trophy,
   Upload,
   UserCheck,
+  UserPlus,
   UserRoundCheck,
   UserRoundX,
+  Users,
   UsersRound,
+  WalletCards,
+  Wrench,
   X,
 } from 'lucide-react';
 import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useState } from 'react';
@@ -114,7 +127,21 @@ type ViewIconKey =
   | 'user-check'
   | 'user-linked'
   | 'user-disabled'
-  | 'archive';
+  | 'archive'
+  | 'bell'
+  | 'building'
+  | 'calendar'
+  | 'clipboard'
+  | 'flag'
+  | 'graduation'
+  | 'id-card'
+  | 'location'
+  | 'plane'
+  | 'trophy'
+  | 'user-plus'
+  | 'team'
+  | 'wallet'
+  | 'wrench';
 
 type EmployeeField = {
   key: ColumnKey;
@@ -247,6 +274,20 @@ const viewIcons = {
   'user-linked': UserRoundCheck,
   'user-disabled': UserRoundX,
   archive: Archive,
+  bell: Bell,
+  building: Building2,
+  calendar: CalendarDays,
+  clipboard: ClipboardCheck,
+  flag: Flag,
+  graduation: GraduationCap,
+  'id-card': IdCard,
+  location: MapPin,
+  plane: Plane,
+  trophy: Trophy,
+  'user-plus': UserPlus,
+  team: Users,
+  wallet: WalletCards,
+  wrench: Wrench,
 } satisfies Record<ViewIconKey, typeof Eye>;
 
 const availableViewIcons: Array<{ key: ViewIconKey; label: string }> = [
@@ -265,6 +306,20 @@ const availableViewIcons: Array<{ key: ViewIconKey; label: string }> = [
   { key: 'user-linked', label: 'Linked user' },
   { key: 'user-disabled', label: 'Disabled user' },
   { key: 'archive', label: 'Archived' },
+  { key: 'bell', label: 'Alert' },
+  { key: 'building', label: 'Office' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'clipboard', label: 'Checklist' },
+  { key: 'flag', label: 'Flag' },
+  { key: 'graduation', label: 'Training' },
+  { key: 'id-card', label: 'Identity' },
+  { key: 'location', label: 'Location' },
+  { key: 'plane', label: 'Travel' },
+  { key: 'trophy', label: 'Top performers' },
+  { key: 'user-plus', label: 'New joiners' },
+  { key: 'team', label: 'Team' },
+  { key: 'wallet', label: 'Payroll' },
+  { key: 'wrench', label: 'Tools' },
 ];
 
 const defaultVisibleIconCount = 7;
@@ -1279,14 +1334,20 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
           {showViewBuilder && (
             <div className="fixed inset-0 z-40 flex items-start justify-center bg-[#17201b]/25 px-3 py-16" onMouseDown={() => setShowViewBuilder(false)}>
               <div
-                className="grid max-h-[calc(100vh-8rem)] w-full max-w-3xl gap-3 overflow-hidden rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-3 shadow-[0_24px_70px_rgba(23,32,27,0.24)]"
+                className="grid max-h-[calc(100vh-8rem)] w-full max-w-4xl grid-rows-[auto_minmax(0,1fr)_auto] gap-3 overflow-hidden rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-3 shadow-[0_24px_70px_rgba(23,32,27,0.24)]"
                 onMouseDown={(event) => event.stopPropagation()}
               >
                 <div className="flex items-center justify-between gap-3 border-b border-[#17201b]/10 pb-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-[#17201b]">View settings</p>
-                    <label className="mt-2 grid max-w-sm gap-1">
-                      <span className="px-1 text-[0.62rem] font-black uppercase text-[#8a6a4a]">View name</span>
+                  <p className="truncate text-sm font-black text-[#17201b]">View settings</p>
+                  <button className="grid size-8 shrink-0 place-items-center rounded-md border border-[#17201b]/10 text-[#59635d] hover:bg-[#f7faf4]" type="button" onClick={() => setShowViewBuilder(false)} title="Close">
+                    <X className="size-4" />
+                  </button>
+                </div>
+
+                <div className="grid gap-4 overflow-y-auto pr-1 md:grid-cols-[310px_minmax(0,1fr)]">
+                  <div className="grid content-start gap-3">
+                    <label className="grid gap-1">
+                      <span className="flex h-5 items-center px-1 text-[0.62rem] font-black uppercase text-[#8a6a4a]">View name</span>
                       <input
                         aria-label="View name"
                         className="field h-9"
@@ -1297,14 +1358,7 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
                         onKeyDown={handleViewNameKeyDown}
                       />
                     </label>
-                  </div>
-                  <button className="grid size-8 shrink-0 place-items-center rounded-md border border-[#17201b]/10 text-[#59635d] hover:bg-[#f7faf4]" type="button" onClick={() => setShowViewBuilder(false)} title="Close">
-                    <X className="size-4" />
-                  </button>
-                </div>
 
-                <div className="grid gap-3 overflow-y-auto pr-1 md:grid-cols-[250px_minmax(0,1fr)]">
-                  <div className="grid content-start gap-3">
                     <div className="grid gap-2">
                       <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Icon</p>
                       <div className="flex flex-wrap gap-2">
@@ -1368,30 +1422,25 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
                         </div>
                       ))}
                     </div>
-
-                    {!activeView.isDefault && (
-                      <button className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-[#a33b2f]/20 px-3 text-xs font-black text-[#a33b2f] hover:bg-[#fff4f1]" type="button" onClick={deleteActiveView}>
-                        <Trash2 className="size-4" />
-                        Delete view
-                      </button>
-                    )}
                   </div>
 
                   <div className="grid min-w-0 content-start gap-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Columns</p>
-                      <p className="text-xs font-semibold text-[#59635d]">{visibleColumns.length} selected</p>
-                    </div>
+                    <div className="grid gap-1">
+                      <div className="flex h-5 items-center justify-between gap-3">
+                        <p className="text-[0.68rem] font-black uppercase text-[#7a5a3a]">Columns</p>
+                        <p className="text-xs font-semibold text-[#59635d]">{visibleColumns.length} selected</p>
+                      </div>
 
-                    <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-[#17201b]/10 bg-[#f7faf4] px-2.5">
-                      <Search className="size-4 shrink-0 text-[#59635d]" />
-                      <input
-                        className="min-w-0 flex-1 bg-transparent text-xs font-semibold outline-none"
-                        placeholder="Find columns"
-                        value={columnSearch}
-                        onChange={(event) => setColumnSearch(event.target.value)}
-                      />
-                    </label>
+                      <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-[#17201b]/10 bg-[#f7faf4] px-2.5">
+                        <Search className="size-4 shrink-0 text-[#59635d]" />
+                        <input
+                          className="min-w-0 flex-1 bg-transparent text-xs font-semibold outline-none"
+                          placeholder="Find columns"
+                          value={columnSearch}
+                          onChange={(event) => setColumnSearch(event.target.value)}
+                        />
+                      </label>
+                    </div>
 
                     <div className="grid max-h-[44vh] gap-3 overflow-y-auto pr-1">
                       {columnGroups.map((group) => (
@@ -1424,13 +1473,25 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 border-t border-[#17201b]/10 pt-2">
-                  <button className="action-button h-8 justify-center" type="button" onClick={discardActiveViewChanges} disabled={!hasUnsavedChanges}>
-                    Discard
-                  </button>
-                  <button className="inline-flex h-8 items-center justify-center gap-2 rounded-md bg-[#27615a] px-3 text-xs font-black text-white disabled:opacity-60" type="button" onClick={saveActiveView} disabled={!hasUnsavedChanges}>
-                    Save
-                  </button>
+                <div className="flex items-center justify-between gap-2 border-t border-[#17201b]/10 bg-[#fffffb] pt-2">
+                  {!activeView.isDefault ? (
+                    <button className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-[#a33b2f]/20 px-3 text-xs font-black text-[#a33b2f] hover:bg-[#fff4f1]" type="button" onClick={deleteActiveView}>
+                      <Trash2 className="size-4" />
+                      Delete view
+                    </button>
+                  ) : (
+                    <span className="rounded bg-[#f7faf4] px-2 py-1 text-[0.65rem] font-black uppercase text-[#59635d]">
+                      Default view
+                    </span>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <button className="action-button h-8 justify-center" type="button" onClick={discardActiveViewChanges} disabled={!hasUnsavedChanges}>
+                      Discard
+                    </button>
+                    <button className="inline-flex h-8 items-center justify-center gap-2 rounded-md bg-[#27615a] px-3 text-xs font-black text-white disabled:opacity-60" type="button" onClick={saveActiveView} disabled={!hasUnsavedChanges}>
+                      Save
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1448,14 +1509,16 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
                     {filteredEmployees.length === 0 ? '0' : `${pageStart + 1}-${pageEnd}`} of {filteredEmployees.length} people shown
                   </p>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:justify-end">
-                  <button className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-[#17201b]/10 bg-[#f7faf4] px-2.5 text-xs font-bold text-[#59635d] hover:bg-[#e8efe8]" type="button" onClick={() => setShowViewBuilder(true)} title="Customize columns">
-                    <Columns3 className="size-4 text-[#27615a]" />
-                    Customize columns
-                    <span className="rounded bg-[#17201b]/10 px-1.5 py-0.5 text-[0.62rem] font-black text-[#34423a]">
-                      {visibleColumns.length}
-                    </span>
-                  </button>
+                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                  <span className="rounded bg-[#f7faf4] px-2 py-1 text-[0.65rem] font-black uppercase text-[#59635d]">
+                    {visibleColumns.length} columns
+                  </span>
+                  <span className="rounded bg-[#f7faf4] px-2 py-1 text-[0.65rem] font-black uppercase text-[#59635d]">
+                    {activeSorts.length} {activeSorts.length === 1 ? 'sort' : 'sorts'}
+                  </span>
+                  <span className="rounded bg-[#f7faf4] px-2 py-1 text-[0.65rem] font-black uppercase text-[#59635d]">
+                    {activeFilterCount} {activeFilterCount === 1 ? 'filter' : 'filters'}
+                  </span>
                 </div>
               </div>
 
@@ -1544,10 +1607,10 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
             </div>
 
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-max min-w-full text-left text-sm">
                 <thead className="bg-[#f7faf4] text-[0.68rem] font-black uppercase text-[#7a5a3a]">
                   <tr>
-                    <th className="w-10 px-4 py-2.5">
+                    <th className="w-10 whitespace-nowrap px-4 py-2.5">
                       <input
                         className="size-4 accent-[#27615a]"
                         type="checkbox"
@@ -1557,8 +1620,8 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
                       />
                     </th>
                     {visibleColumns.map((column) => (
-                      <th className="px-4 py-2.5" key={column.key}>
-                        <button className="inline-flex items-center gap-1.5 text-left" type="button" onClick={() => sortBy(column.key)}>
+                      <th className={column.key === 'employee' ? 'min-w-64 whitespace-nowrap px-4 py-2.5' : 'min-w-44 whitespace-nowrap px-4 py-2.5'} key={column.key}>
+                        <button className="inline-flex items-center gap-1.5 whitespace-nowrap text-left" type="button" onClick={() => sortBy(column.key)}>
                           {column.label}
                           {activeSorts.some((sort) => sort.column === column.key) && (
                             <>
@@ -1571,13 +1634,13 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
                         </button>
                       </th>
                     ))}
-                    <th className="px-4 py-2.5 text-right">Actions</th>
+                    <th className="sticky right-0 z-20 min-w-32 whitespace-nowrap border-l border-[#17201b]/10 bg-[#f7faf4] px-4 py-2.5 text-right shadow-[-10px_0_18px_rgba(23,32,27,0.04)]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#17201b]/10">
                   {paginatedEmployees.map((employee) => (
-                    <tr className="hover:bg-[#f7faf4]" key={employee.id}>
-                      <td className="px-4 py-3">
+                    <tr className="group hover:bg-[#f7faf4]" key={employee.id}>
+                      <td className="whitespace-nowrap px-4 py-3">
                         <input
                           className="size-4 accent-[#27615a]"
                           type="checkbox"
@@ -1587,11 +1650,11 @@ export default function EmployeesIndex({ user, template, employees, views: emplo
                         />
                       </td>
                       {visibleColumns.map((column) => (
-                        <td className="px-4 py-3 text-xs font-semibold text-[#59635d]" key={column.key}>
+                        <td className={column.key === 'employee' ? 'min-w-64 whitespace-nowrap px-4 py-3 text-xs font-semibold text-[#59635d]' : 'min-w-44 whitespace-nowrap px-4 py-3 text-xs font-semibold text-[#59635d]'} key={column.key}>
                           {columnValue(employee, column.key)}
                         </td>
                       ))}
-                      <td className="px-4 py-3">
+                      <td className="sticky right-0 z-10 min-w-32 whitespace-nowrap border-l border-[#17201b]/10 bg-[#fffffb] px-4 py-3 shadow-[-10px_0_18px_rgba(23,32,27,0.04)] group-hover:bg-[#f7faf4]">
                         <div className="flex justify-end gap-2">
                           <Link className="action-button no-underline" href={`/employees/${employee.id}/edit`}>Edit</Link>
                           <button className="grid size-8 place-items-center rounded-md border border-[#a33b2f]/20 text-[#a33b2f] hover:bg-[#fff4f1]" type="button" onClick={() => setEmployeeToDelete(employee)} title="Delete employee">
