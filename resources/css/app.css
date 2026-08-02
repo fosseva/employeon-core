@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@layer components {
+  .field {
+    @apply h-9 min-w-0 rounded-md border border-[#17201b]/10 bg-[#f7faf4] px-2.5 text-xs font-semibold text-[#17201b] outline-none focus:border-[#27615a]/50;
+  }
+
+  .metric {
+    @apply rounded-lg border border-[#17201b]/10 bg-[#fffffb] p-3 shadow-[0_18px_45px_rgba(23,32,27,0.05)];
+  }
+
+  .metric span {
+    @apply mt-2 block text-xl font-black text-[#17201b];
+  }
+
+  .metric p {
+    @apply text-[0.68rem] font-bold uppercase text-[#7a5a3a];
+  }
+
+  .action-button {
+    @apply inline-flex h-8 items-center gap-1.5 rounded-md border border-[#17201b]/10 bg-[#fffffb] px-2.5 text-xs font-black text-[#34423a] hover:bg-[#e8efe8] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+}

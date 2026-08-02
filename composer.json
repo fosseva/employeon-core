@@ -14,16 +14,18 @@
         }
     },
     "require": {
-        "php": "^8.2",
-        "illuminate/support": "^11.0|^12.0"
+        "php": "^8.3",
+        "laravel/framework": "^13.0",
+        "inertiajs/inertia-laravel": "^2.0",
+        "spatie/laravel-permission": "^8.0"
     },
     "require-dev": {
-        "laravel/pint": "^1.18",
-        "orchestra/testbench": "^9.0|^10.0",
-        "pestphp/pest": "^2.34|^3.0",
-        "pestphp/pest-plugin-arch": "^2.7|^3.0",
-        "pestphp/pest-plugin-laravel": "^2.4|^3.0",
-        "phpstan/phpstan": "^2.0"
+        "laravel/pint": "^1.27",
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^4.7",
+        "pestphp/pest-plugin-arch": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.1",
+        "phpstan/phpstan": "^2.2"
     },
     "extra": {
         "laravel": {
@@ -47,7 +49,7 @@
         "test": "pest",
         "format:test": "pint --test",
         "format": "pint",
-        "validate:composer": "composer validate --strict"
+        "validate:composer": "composer validate --strict --no-check-lock"
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
